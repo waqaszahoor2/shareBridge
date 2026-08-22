@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, ClipboardEvent } from 'react';
-import { formatTransferCodeDisplay, normalizeTransferCode } from '@/lib/codeUtils';
+import { formatTransferCode, normalizeTransferCode } from '@/lib/utils/transferCode';
 
 interface CodeInputProps {
   value: string;
@@ -18,22 +18,22 @@ export default function CodeInput({
   autoFocus = false,
   hasError = false
 }: CodeInputProps) {
-  const digits = value.replace(/\D/g, '').slice(0, 6);
-  const displayValue = formatTransferCodeDisplay(digits);
+  const cleanDigits = normalizeTransferCode(value);
+  const displayValue = formatTransferCode(cleanDigits);
 
   function handleInputChange(e: ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
-    const cleanDigits = raw.replace(/\D/g, '').slice(0, 6);
-    const formatted = formatTransferCodeDisplay(cleanDigits);
-    onChange(cleanDigits, formatted);
+    const nextDigits = normalizeTransferCode(raw);
+    const formatted = formatTransferCode(nextDigits);
+    onChange(nextDigits, formatted);
   }
 
   function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
-    const cleanDigits = pastedText.replace(/\D/g, '').slice(0, 6);
-    const formatted = formatTransferCodeDisplay(cleanDigits);
-    onChange(cleanDigits, formatted);
+    const nextDigits = normalizeTransferCode(pastedText);
+    const formatted = formatTransferCode(nextDigits);
+    onChange(nextDigits, formatted);
   }
 
   return (
@@ -43,9 +43,8 @@ export default function CodeInput({
           id="transferCodeInput"
           type="text"
           inputMode="numeric"
-          pattern="[0-9]*"
           maxLength={7}
-          placeholder="583-921"
+          placeholder="•••-•••"
           value={displayValue}
           onChange={handleInputChange}
           onPaste={handlePaste}
@@ -59,7 +58,7 @@ export default function CodeInput({
       <div className="inputHelperRow">
         <span className="helperText">Format: XXX-XXX</span>
         <span className="dotSeparator">•</span>
-        <span className="helperText">Numbers only</span>
+        <span className="helperText">Only numbers are allowed</span>
       </div>
     </div>
   );

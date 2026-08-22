@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatTransferCode, normalizeTransferCode } from '@/lib/utils/transferCode';
 
 interface TransferCodeProps {
   code: string;
@@ -11,15 +12,16 @@ interface TransferCodeProps {
 export default function TransferCode({ code, secondsLeft, onCopySuccess }: TransferCodeProps) {
   const [copied, setCopied] = useState(false);
 
-  const formattedCode = code.length === 6 ? `${code.slice(0, 3)}-${code.slice(3)}` : code;
+  const formattedCode = formatTransferCode(code);
+  const rawCode = normalizeTransferCode(code);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
   const timeString = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   function copyCode() {
-    if (!code) return;
-    navigator.clipboard.writeText(code).then(() => {
+    if (!rawCode) return;
+    navigator.clipboard.writeText(rawCode).then(() => {
       setCopied(true);
       onCopySuccess?.();
       setTimeout(() => setCopied(false), 2500);

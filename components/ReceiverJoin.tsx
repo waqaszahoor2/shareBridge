@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
-import { normalizeTransferCode } from '@/lib/codeUtils';
+import { normalizeTransferCode } from '@/lib/utils/transferCode';
 import CodeInput from './CodeInput';
 
 interface ReceiverJoinProps {
@@ -23,14 +23,14 @@ export default function ReceiverJoin({ onJoin, disabled = false, loading = false
     e.preventDefault();
     setValidationError('');
 
-    if (!codeDigits) {
-      setValidationError('Please enter the transfer code.');
+    if (!codeDigits.trim()) {
+      setValidationError('Please enter transfer code.');
       return;
     }
 
     const normalized = normalizeTransferCode(codeDigits);
-    if (!normalized) {
-      setValidationError('Invalid format. Enter a 6-digit code. Example: 583-921');
+    if (normalized.length !== 6) {
+      setValidationError('Enter a valid 6-digit code. Format: XXX-XXX');
       return;
     }
 
@@ -40,11 +40,10 @@ export default function ReceiverJoin({ onJoin, disabled = false, loading = false
   }
 
   return (
-    <form className="joinForm" onSubmit={handleSubmit}>
+    <form className="joinForm" onSubmit={handleSubmit} noValidate>
       <div className="joinHeader">
-        <h3>Enter Transfer Code</h3>
-        <p className="joinSubtext">Enter the 6-digit code shared by the sender.</p>
-        <span className="joinExample">Example: <strong>583-921</strong></span>
+        <h3>Enter 6-Digit Transfer Code</h3>
+        <p className="joinSubtext">Enter the code shared by the sender to join the transfer.</p>
       </div>
 
       <CodeInput
