@@ -4,9 +4,11 @@ import { hasRedis } from '@/lib/server/store';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const isRedisConnected = hasRedis();
   return noStoreJson({
     status: 'ok',
+    redis: isRedisConnected ? 'connected' : 'fallback',
     service: 'PeerBridge',
-    sessionStore: hasRedis() ? 'redis' : 'fallback'
+    sessionStore: isRedisConnected ? 'redis' : 'fallback'
   });
 }

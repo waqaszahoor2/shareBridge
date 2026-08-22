@@ -75,6 +75,7 @@ export async function POST(request: Request) {
 
       const created = await putIfAbsent(`pb:session:${code}`, JSON.stringify(sessionData), SESSION_TTL_SECONDS);
       if (created) {
+        console.log(`[Sender Session Created]\nCode: ${code}\nSession ID: ${ownerToken}\nStored: ${Boolean(created)}`);
         return noStoreJson({
           success: true,
           code,

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const rawInput = body.code || '';
     const code = normalizeCode(rawInput);
 
-    console.log(`[Receiver Join Request]\nReceived Code: ${rawInput}\nNormalized Code: ${code}`);
+    console.log(`[Receiver Join Debug]\nReceived code: ${rawInput}\nNormalized: ${code}\nSearching: pb:session:${code}`);
 
     if (!rawInput.trim()) {
       return noStoreJson(
@@ -53,14 +53,13 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`Searching Redis Key: pb:session:${code}`);
     const rawSession = await get(`pb:session:${code}`);
-    console.log(`Redis Key pb:session:${code} Exists: ${Boolean(rawSession)}`);
+    console.log(`Redis result for pb:session:${code}: ${rawSession ? 'FOUND' : 'NOT FOUND'}`);
 
     if (!rawSession) {
       console.error(`Transfer join failed: Session key pb:session:${code} not found or expired`);
       return noStoreJson(
-        { success: false, message: 'Transfer code not found or expired. Check the code and try again. Example: 583-921', error: 'Transfer code not found' },
+        { success: false, message: 'Transfer code not found. Check with sender.', error: 'Transfer code not found' },
         { status: 404 }
       );
     }
