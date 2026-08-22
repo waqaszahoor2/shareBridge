@@ -37,6 +37,7 @@ export default function SendFlow() {
   const [eta, setEta] = useState<number>(0);
   const [activeFileName, setActiveFileName] = useState<string>('');
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
@@ -230,10 +231,26 @@ export default function SendFlow() {
 
   function approveReceiver() {
     const channel = channelRef.current;
-    if (!channel || channel.readyState !== 'open' || manifestSentRef.current) return;
+    if (!channel || channel.readyState !== 'open') {
+      setError('Unable to approve transfer.');
+      setErrorReasons([
+        'Connection lost',
+        'Session expired',
+        'Receiver disconnected',
+        'WebRTC negotiation failed'
+      ]);
+      return;
+    }
+    if (manifestSentRef.current) return;
+    setIsApproving(true);
     manifestSentRef.current = true;
-    setPeerStatus('Receiver allowed — awaiting file approval');
-    sendControl(channel, { kind: 'manifest', files: selected.map((item) => item.meta) });
+    setPeerStatus('Preparing transfer & awaiting receiver acceptance...');
+    sendControl(channel, {
+      kind: 'manifest',
+      type: 'TRANSFER_APPROVED',
+      sessionId: code,
+      files: selected.map((item) => item.meta)
+    });
   }
 
   function declineReceiver() {
@@ -359,11 +376,40 @@ export default function SendFlow() {
           <p>A receiver device is ready to connect. Do you approve sending these files?</p>
           <FileMetadata files={selected} totalBytes={totalBytes} />
           <FilePreview files={selected} readOnly />
+
+          {isApproving && (
+            <div className="prepStatusCard" role="status">
+              <div className="prepHeader">
+                <span className="spinner" aria-hidden="true" />
+                <strong>Preparing transfer...</strong>
+              </div>
+              <div className="prepChecklist">
+                <span>✓ Connection verified</span>
+                <span>✓ Transfer manifest sent</span>
+                <span>⏳ Awaiting receiver acceptance &amp; buffer allocation...</span>
+              </div>
+              <div className="prepEstimate">
+                Estimated preparation time: <strong>{totalBytes > 100 * 1024 * 1024 ? '15-30 seconds' : totalBytes > 10 * 1024 * 1024 ? '5-10 seconds' : '2 seconds'}</strong>
+              </div>
+            </div>
+          )}
+
           <div className="approvalButtons">
-            <button type="button" className="button buttonPrimary" onClick={approveReceiver}>
-              ✓ Approve & Share Files
+            <button
+              type="button"
+              className="button buttonPrimary"
+              onClick={approveReceiver}
+              disabled={isApproving}
+            >
+              {isApproving ? (
+                <>
+                  <span className="spinner" aria-hidden="true" /> ⏳ Preparing Transfer...
+                </>
+              ) : (
+                '✓ Approve & Share Files'
+              )}
             </button>
-            <button type="button" className="button buttonGhost" onClick={declineReceiver}>
+            <button type="button" className="button buttonGhost" onClick={declineReceiver} disabled={isApproving}>
               ✕ Decline
             </button>
           </div>

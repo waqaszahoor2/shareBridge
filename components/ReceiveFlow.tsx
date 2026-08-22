@@ -72,6 +72,7 @@ export default function ReceiveFlow() {
   const [activeFileName, setActiveFileName] = useState('');
   const [supportsDirectory, setSupportsDirectory] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [isAccepting, setIsAccepting] = useState(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
@@ -351,17 +352,24 @@ export default function ReceiveFlow() {
   function acceptTransfer() {
     const channel = channelRef.current;
     if (!channel || channel.readyState !== 'open') {
-      setError('Transfer channel is not open.');
+      setError('Unable to accept transfer.');
+      setErrorReasons([
+        'Connection lost',
+        'Session code expired',
+        'Sender disconnected',
+        'WebRTC data channel closed'
+      ]);
       return;
     }
 
+    setIsAccepting(true);
     startedAtRef.current = performance.now();
     lastUiRef.current = performance.now();
     totalReceivedRef.current = 0;
 
     setState('transferring');
     setPeerStatus('Receiving files...');
-    sendControl(channel, { kind: 'accept' });
+    sendControl(channel, { kind: 'accept', status: 'approved', sessionId: code });
   }
 
   function declineTransfer() {
@@ -420,11 +428,35 @@ export default function ReceiveFlow() {
           <p>The sender wants to transmit the following files directly to your device:</p>
           <FileMetadata files={incoming} totalBytes={totalBytes} />
           <FilePreview files={incoming} readOnly />
+
+          {isAccepting && (
+            <div className="prepStatusCard" role="status">
+              <div className="prepHeader">
+                <span className="spinner" aria-hidden="true" />
+                <strong>Preparing download...</strong>
+              </div>
+              <div className="prepEstimate">
+                Estimated preparation time: <strong>{totalBytes > 100 * 1024 * 1024 ? '15-30 seconds' : totalBytes > 10 * 1024 * 1024 ? '5-10 seconds' : '2 seconds'}</strong>
+              </div>
+            </div>
+          )}
+
           <div className="approvalButtons">
-            <button type="button" className="button buttonPrimary" onClick={acceptTransfer}>
-              ✓ Accept & Download Files
+            <button
+              type="button"
+              className="button buttonPrimary"
+              onClick={acceptTransfer}
+              disabled={isAccepting}
+            >
+              {isAccepting ? (
+                <>
+                  <span className="spinner" aria-hidden="true" /> ⏳ Preparing Download...
+                </>
+              ) : (
+                '✓ Accept & Download Files'
+              )}
             </button>
-            <button type="button" className="button buttonGhost" onClick={declineTransfer}>
+            <button type="button" className="button buttonGhost" onClick={declineTransfer} disabled={isAccepting}>
               ✕ Decline
             </button>
           </div>
