@@ -7,8 +7,6 @@ export async function GET() {
   return noStoreJson({
     status: 'ok',
     service: 'PeerBridge',
-    signaling: 'http-polling',
-    sessionStore: hasRedis() ? 'redis' : 'memory',
-    productionReady: hasRedis() || !process.env.VERCEL
+    sessionStore: hasRedis() ? 'redis' : 'fallback'
   });
 }

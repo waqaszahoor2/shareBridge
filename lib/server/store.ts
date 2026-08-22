@@ -22,7 +22,7 @@ export function hasRedis() {
 async function redisCommand<T = unknown>(args: Array<string | number>): Promise<T> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) throw new Error('Redis is not configured');
+  if (!url || !token) throw new Error('Missing environment variable: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
 
   const response = await fetch(url, {
     method: 'POST',
@@ -35,16 +35,20 @@ async function redisCommand<T = unknown>(args: Array<string | number>): Promise<
     cache: 'no-store'
   });
 
-  if (!response.ok) throw new Error(`Redis request failed (${response.status})`);
+  if (!response.ok) throw new Error(`Redis HTTP request failed (${response.status})`);
   const data = (await response.json()) as { result?: T; error?: string };
-  if (data.error) throw new Error(data.error);
+  if (data.error) throw new Error(`Redis command error: ${data.error}`);
   return data.result as T;
 }
 
-export async function putIfAbsent(key: string, value: string, ttlSeconds: number) {
+export async function putIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean> {
   if (hasRedis()) {
-    const result = await redisCommand<string | null>(['SET', key, value, 'EX', ttlSeconds, 'NX']);
-    return result === 'OK';
+    try {
+      const result = await redisCommand<string | null>(['SET', key, value, 'EX', ttlSeconds, 'NX']);
+      return result === 'OK';
+    } catch (err) {
+      console.error('Redis SET NX operation failed (falling back to temporary session store):', err instanceof Error ? err.message : err);
+    }
   }
 
   cleanLocalKey(key);
@@ -53,26 +57,40 @@ export async function putIfAbsent(key: string, value: string, ttlSeconds: number
   return true;
 }
 
-export async function put(key: string, value: string, ttlSeconds: number) {
+export async function put(key: string, value: string, ttlSeconds: number): Promise<void> {
   if (hasRedis()) {
-    await redisCommand(['SET', key, value, 'EX', ttlSeconds]);
-    return;
+    try {
+      await redisCommand(['SET', key, value, 'EX', ttlSeconds]);
+      return;
+    } catch (err) {
+      console.error('Redis SET operation failed (falling back to temporary session store):', err instanceof Error ? err.message : err);
+    }
   }
   localKv.set(key, { value, expiresAt: now() + ttlSeconds * 1000 });
 }
 
-export async function get(key: string) {
-  if (hasRedis()) return redisCommand<string | null>(['GET', key]);
+export async function get(key: string): Promise<string | null> {
+  if (hasRedis()) {
+    try {
+      return await redisCommand<string | null>(['GET', key]);
+    } catch (err) {
+      console.error('Redis GET operation failed (falling back to temporary session store):', err instanceof Error ? err.message : err);
+    }
+  }
   cleanLocalKey(key);
   return localKv.get(key)?.value ?? null;
 }
 
-export async function pushSignal(key: string, value: string, ttlSeconds: number) {
+export async function pushSignal(key: string, value: string, ttlSeconds: number): Promise<void> {
   if (hasRedis()) {
-    await redisCommand(['RPUSH', key, value]);
-    await redisCommand(['LTRIM', key, -200, -1]);
-    await redisCommand(['EXPIRE', key, ttlSeconds]);
-    return;
+    try {
+      await redisCommand(['RPUSH', key, value]);
+      await redisCommand(['LTRIM', key, -200, -1]);
+      await redisCommand(['EXPIRE', key, ttlSeconds]);
+      return;
+    } catch (err) {
+      console.error('Redis RPUSH operation failed (falling back to temporary session store):', err instanceof Error ? err.message : err);
+    }
   }
 
   cleanLocalKey(key);
@@ -83,17 +101,27 @@ export async function pushSignal(key: string, value: string, ttlSeconds: number)
   localLists.set(key, item);
 }
 
-export async function readSignals(key: string) {
-  if (hasRedis()) return (await redisCommand<string[] | null>(['LRANGE', key, 0, -1])) ?? [];
+export async function readSignals(key: string): Promise<string[]> {
+  if (hasRedis()) {
+    try {
+      return (await redisCommand<string[] | null>(['LRANGE', key, 0, -1])) ?? [];
+    } catch (err) {
+      console.error('Redis LRANGE operation failed (falling back to temporary session store):', err instanceof Error ? err.message : err);
+    }
+  }
   cleanLocalKey(key);
   return localLists.get(key)?.values ?? [];
 }
 
-export async function incrementWithTtl(key: string, ttlSeconds: number) {
+export async function incrementWithTtl(key: string, ttlSeconds: number): Promise<number> {
   if (hasRedis()) {
-    const count = await redisCommand<number>(['INCR', key]);
-    if (count === 1) await redisCommand(['EXPIRE', key, ttlSeconds]);
-    return Number(count);
+    try {
+      const count = await redisCommand<number>(['INCR', key]);
+      if (count === 1) await redisCommand(['EXPIRE', key, ttlSeconds]);
+      return Number(count);
+    } catch (err) {
+      console.error('Redis INCR operation failed (falling back to temporary session store):', err instanceof Error ? err.message : err);
+    }
   }
 
   cleanLocalKey(key);
