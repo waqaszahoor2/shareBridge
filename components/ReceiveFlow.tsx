@@ -422,10 +422,10 @@ export default function ReceiveFlow() {
           <FilePreview files={incoming} readOnly />
           <div className="approvalButtons">
             <button type="button" className="button buttonPrimary" onClick={acceptTransfer}>
-              ✓ Accept &amp; Download Files
+              ✓ Accept & Download Files
             </button>
             <button type="button" className="button buttonGhost" onClick={declineTransfer}>
-              ✕ Decline Transfer
+              ✕ Decline
             </button>
           </div>
         </div>

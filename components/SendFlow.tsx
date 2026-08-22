@@ -361,10 +361,10 @@ export default function SendFlow() {
           <FilePreview files={selected} readOnly />
           <div className="approvalButtons">
             <button type="button" className="button buttonPrimary" onClick={approveReceiver}>
-              ✓ Approve &amp; Share Files
+              ✓ Approve & Share Files
             </button>
             <button type="button" className="button buttonGhost" onClick={declineReceiver}>
-              ✕ Decline Connection
+              ✕ Decline
             </button>
           </div>
         </div>

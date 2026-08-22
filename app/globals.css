@@ -463,4 +463,165 @@ button { color: inherit; }
 .dotSeparator { color: #c0c4d6; }
 .inputValidationAlert { background: #fff1f1; border: 1px solid #fecaca; color: #991b1b; padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; text-align: center; }
 
+.flowHeader { text-align: center; margin-bottom: 28px; }
+.flowHeader h2 { font-size: 32px; letter-spacing: -1px; margin: 8px 0 6px; }
+.backLink { display: inline-flex; align-items: center; color: var(--muted); font-size: 13px; font-weight: 600; margin-bottom: 6px; text-decoration: none; }
+.backLink:hover { color: var(--purple); }
+.subtitle { color: var(--muted); font-size: 15px; margin: 0; }
+.senderStepBox, .receiverStepBox { display: grid; gap: 20px; }
+.approvalCard, .connectingCard, .successCard { background: white; border: 1px solid var(--line); border-radius: 20px; padding: 32px; text-align: center; box-shadow: var(--shadow); }
+.approvalCard h3, .connectingCard h3, .successCard h3 { margin: 0 0 8px; font-size: 22px; }
+.approvalCard p, .connectingCard p, .successCard p { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
+.approvalButtons { display: flex; justify-content: center; gap: 14px; margin-top: 24px; flex-wrap: wrap; }
+.successIcon { font-size: 48px; margin-bottom: 12px; }
+.selectedSection { display: grid; gap: 16px; }
+.sendLayout, .receiveLayout { max-width: 640px; margin: 0 auto; padding: 40px 20px; }
+.declined { text-align: center; padding: 40px 20px; }
 
+/* ===== MOBILE RESPONSIVE ===== */
+
+/* Tablets and smaller desktops */
+@media (max-width: 768px) {
+  .sendLayout, .receiveLayout { padding: 28px 16px; max-width: 100%; }
+
+  .flowHeader { margin-bottom: 20px; }
+  .flowHeader h2 { font-size: 26px; letter-spacing: -0.5px; }
+  .subtitle { font-size: 13px; }
+
+  .dropzone { padding: 28px 16px; }
+  .dropzoneIcon { font-size: 34px; }
+  .dropzone h3 { font-size: 17px; }
+  .dropzoneSub { font-size: 13px; margin-bottom: 12px; }
+  .dropzoneMeta { font-size: 11px; padding: 5px 12px; }
+
+  .fileMetadataBar { padding: 10px 14px; font-size: 12px; gap: 10px; }
+  .fileList { max-height: 260px; }
+  .fileRow { padding: 10px 12px; gap: 10px; }
+  .fileRowIcon { width: 36px; height: 36px; font-size: 16px; border-radius: 8px; }
+  .fileName { font-size: 13px; }
+  .fileRowMeta { font-size: 11px; gap: 8px; }
+  .removeButton { font-size: 14px; padding: 4px; }
+
+  .actionRow { flex-direction: column; gap: 10px; }
+  .createTransferBtn { min-width: unset; }
+
+  .transferCodeBox { padding: 24px 16px; border-radius: 16px; }
+  .codeLabel { font-size: 10px; }
+  .codeDigits { font-size: 36px; letter-spacing: 3px; }
+  .codeDisplay { gap: 12px; }
+  .copyButton { min-height: 40px; font-size: 13px; }
+  .codeExpiry { font-size: 13px; }
+
+  .joinForm { padding: 24px 18px; border-radius: 16px; gap: 16px; max-width: 100%; }
+  .joinHeader h3 { font-size: 19px; }
+  .joinSubtext { font-size: 13px; }
+  .codeInput { height: 56px; font-size: 26px; letter-spacing: 0.15em; border-radius: 14px; }
+  .joinButton { min-height: 48px; font-size: 15px; }
+
+  .approvalCard, .connectingCard, .successCard { padding: 24px 16px; border-radius: 16px; }
+  .approvalCard h3, .connectingCard h3, .successCard h3 { font-size: 19px; }
+  .approvalCard p, .connectingCard p, .successCard p { font-size: 13px; }
+  .approvalButtons { gap: 10px; flex-direction: column; }
+  .approvalButtons .button { width: 100%; min-height: 48px; }
+
+  .statusCard { padding: 12px 14px; border-radius: 12px; }
+  .statusDotLabel { font-size: 11px; }
+  .statusPill { font-size: 11px; padding: 3px 10px; }
+  .statusDetail { font-size: 12px; }
+
+  .progressBox { padding: 18px 14px; border-radius: 14px; }
+  .progressTitle { font-size: 13px; }
+  .progressStatsGrid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .statItem { padding: 8px; border-radius: 8px; }
+  .statLabel { font-size: 10px; }
+  .statValue { font-size: 12px; }
+
+  .errorAlert { padding: 16px 14px; border-radius: 12px; gap: 10px; }
+  .errorIcon { font-size: 20px; }
+  .errorTitle { font-size: 14px; }
+  .errorMainText { font-size: 12px; }
+  .errorReasonsBox { padding: 10px; border-radius: 8px; }
+  .reasonsList { font-size: 11px; }
+  .errorActions { flex-direction: column; gap: 8px; }
+  .errorActions .button { width: 100%; }
+
+  .successIcon { font-size: 40px; margin-bottom: 10px; }
+
+  .inputValidationAlert { padding: 8px 12px; font-size: 12px; border-radius: 8px; }
+}
+
+/* Phones */
+@media (max-width: 480px) {
+  .sendLayout, .receiveLayout { padding: 20px 12px; }
+
+  .flowHeader { margin-bottom: 16px; }
+  .flowHeader h2 { font-size: 22px; }
+  .backLink { font-size: 12px; }
+  .subtitle { font-size: 12px; }
+
+  .dropzone { padding: 22px 12px; border-radius: 16px; }
+  .dropzoneIcon { font-size: 28px; margin-bottom: 6px; }
+  .dropzone h3 { font-size: 16px; }
+  .dropzoneSub { font-size: 12px; }
+  .dropzoneMeta { font-size: 10px; padding: 4px 10px; flex-wrap: wrap; justify-content: center; }
+
+  .fileMetadataBar { flex-direction: column; align-items: flex-start; padding: 8px 12px; gap: 6px; font-size: 11px; border-radius: 10px; }
+  .metaTypes { flex-wrap: wrap; }
+  .typeChip { font-size: 10px; padding: 2px 6px; }
+
+  .fileList { max-height: 200px; gap: 6px; }
+  .fileRow { padding: 8px 10px; gap: 8px; border-radius: 10px; }
+  .fileRowIcon { width: 32px; height: 32px; font-size: 14px; border-radius: 7px; }
+  .fileName { font-size: 12px; }
+  .fileRowMeta { font-size: 10px; }
+
+  .button { min-height: 44px; padding: 0 16px; font-size: 13px; border-radius: 10px; gap: 8px; }
+  .buttonSmall { min-height: 36px; padding-inline: 12px; font-size: 12px; }
+
+  .transferCodeBox { padding: 20px 12px; border-radius: 14px; }
+  .codeDigits { font-size: 30px; letter-spacing: 2px; }
+  .codeDisplay { flex-direction: column; gap: 10px; }
+  .copyButton { font-size: 12px; min-height: 38px; }
+  .codeExpiry { font-size: 12px; flex-wrap: wrap; justify-content: center; }
+
+  .joinForm { padding: 20px 14px; border-radius: 14px; gap: 14px; }
+  .joinHeader h3 { font-size: 17px; }
+  .joinSubtext { font-size: 12px; }
+  .codeInput { height: 52px; font-size: 22px; letter-spacing: 0.12em; border-radius: 12px; border-width: 1.5px; }
+  .inputHelperRow { font-size: 11px; gap: 6px; }
+  .joinButton { min-height: 46px; font-size: 14px; }
+
+  .approvalCard, .connectingCard, .successCard { padding: 20px 14px; border-radius: 14px; }
+  .approvalCard h3, .connectingCard h3, .successCard h3 { font-size: 17px; }
+  .approvalCard p, .connectingCard p, .successCard p { font-size: 12px; }
+
+  .statusCard { padding: 10px 12px; border-radius: 10px; flex-direction: column; align-items: flex-start; }
+  .statusHeader { gap: 8px; }
+
+  .progressBox { padding: 14px 12px; border-radius: 12px; }
+  .progressStatsGrid { grid-template-columns: 1fr 1fr; }
+  .statItem:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  .errorAlert { flex-direction: column; padding: 14px 12px; border-radius: 10px; }
+  .errorIcon { font-size: 18px; }
+  .errorTitle { font-size: 13px; }
+  .errorMainText { font-size: 11px; }
+
+  .toastContainer { left: 12px; right: 12px; bottom: 16px; border-radius: 10px; font-size: 13px; padding: 10px 14px; }
+
+  .successIcon { font-size: 36px; }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  .sendLayout, .receiveLayout { padding: 16px 10px; }
+  .flowHeader h2 { font-size: 20px; }
+  .codeDigits { font-size: 26px; letter-spacing: 1px; }
+  .codeInput { height: 48px; font-size: 20px; }
+  .joinForm { padding: 16px 12px; }
+  .joinHeader h3 { font-size: 16px; }
+  .approvalCard, .connectingCard, .successCard { padding: 16px 12px; }
+  .approvalCard h3, .connectingCard h3, .successCard h3 { font-size: 16px; }
+  .progressStatsGrid { grid-template-columns: 1fr; }
+  .button { min-height: 42px; font-size: 12px; }
+}
