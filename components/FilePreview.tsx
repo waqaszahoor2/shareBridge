@@ -18,9 +18,20 @@ export default function FilePreview({ files, onRemove, readOnly = false }: FileP
     <ul className="fileList" aria-label="Selected file list">
       {items.map((file) => {
         const category = fileCategory(file.name);
+        const iconSymbol =
+          category.includes('Image') ? '🖼️' :
+          category.includes('PowerPoint') || category.includes('Presentation') ? '📊' :
+          category === 'JSON' || category === 'XML' || category === 'YAML' ? '📋' :
+          category === 'PDF' ? '📄' :
+          category === 'CSV' || category.includes('Excel') || category.includes('Spreadsheet') ? '📈' :
+          category.includes('Archive') ? '📦' :
+          category === 'Video' ? '🎬' :
+          category === 'Audio' ? '🎵' :
+          category.includes('Code') || category.includes('Script') || category.includes('React') || category === 'TypeScript' || category === 'JavaScript' ? '💻' : '📁';
+
         return (
           <li key={file.id} className="fileRow">
-            <div className="fileRowIcon">{category.slice(0, 3).toUpperCase()}</div>
+            <div className="fileRowIcon" title={category}>{iconSymbol}</div>
             <div className="fileRowMain">
               <span className="fileName">{file.name}</span>
               <div className="fileRowMeta">

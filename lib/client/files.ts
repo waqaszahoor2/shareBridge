@@ -3,12 +3,26 @@
 import type { FileMeta } from '@/lib/types';
 
 const categories: Record<string, string> = {
-  pdf: 'PDF', csv: 'CSV', xls: 'Excel', xlsx: 'Excel', ppt: 'PowerPoint', pptx: 'PowerPoint',
-  doc: 'Document', docx: 'Document', zip: 'Archive', rar: 'Archive', '7z': 'Archive', tar: 'Archive', gz: 'Archive',
-  jpg: 'Image', jpeg: 'Image', png: 'Image', gif: 'Image', webp: 'Image', svg: 'Image',
+  // Documents & Presentations
+  pdf: 'PDF', ppt: 'PowerPoint', pptx: 'PowerPoint', key: 'Presentation', odp: 'Presentation',
+  doc: 'Document', docx: 'Document', txt: 'Text', md: 'Markdown', rtf: 'Document', odt: 'Document',
+  // Spreadsheets & Data
+  xls: 'Excel', xlsx: 'Excel', csv: 'CSV', tsv: 'CSV', ods: 'Spreadsheet',
+  json: 'JSON', xml: 'XML', yaml: 'YAML', yml: 'YAML', sql: 'SQL Data', db: 'Database', sqlite: 'Database',
+  parquet: 'Data', pkl: 'Model', joblib: 'Model',
+  // Images
+  jpg: 'Image', jpeg: 'Image', png: 'Image', gif: 'Image', webp: 'Image', svg: 'SVG Image',
+  bmp: 'Image', ico: 'Icon', avif: 'Image', heic: 'Image', tiff: 'Image',
+  // Archives & Compressed
+  zip: 'Archive', rar: 'Archive', '7z': 'Archive', tar: 'Archive', gz: 'Archive', bz2: 'Archive', xz: 'Archive',
+  // Code & Web
+  js: 'JavaScript', ts: 'TypeScript', jsx: 'React Component', tsx: 'React Component',
+  html: 'HTML', css: 'CSS', py: 'Python', cpp: 'C++', c: 'C Code', java: 'Java', rs: 'Rust', go: 'Go Code', php: 'PHP',
+  // Audio & Video
   mp4: 'Video', mov: 'Video', mkv: 'Video', avi: 'Video', webm: 'Video',
-  mp3: 'Audio', wav: 'Audio', flac: 'Audio', m4a: 'Audio',
-  json: 'Data', parquet: 'Data', pkl: 'Model', joblib: 'Model', txt: 'Text'
+  mp3: 'Audio', wav: 'Audio', flac: 'Audio', m4a: 'Audio', ogg: 'Audio', aac: 'Audio',
+  // Applications & Executables
+  exe: 'Application', dmg: 'Disk Image', iso: 'Disk Image', apk: 'Android App', deb: 'Package', rpm: 'Package'
 };
 
 export function extensionOf(name: string) {
