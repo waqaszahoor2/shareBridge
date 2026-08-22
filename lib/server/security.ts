@@ -43,8 +43,17 @@ export function getClientIp(request: Request) {
 export function isSameOrigin(request: Request) {
   const origin = request.headers.get('origin');
   if (!origin) return true;
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
   try {
-    return new URL(origin).host === new URL(request.url).host;
+    const originHost = new URL(origin).host;
+    const reqHost = host || new URL(request.url).host;
+    if (originHost === reqHost) return true;
+    // Strip port for IP/localhost comparisons
+    const originName = originHost.split(':')[0];
+    const reqName = reqHost.split(':')[0];
+    if (originName === reqName) return true;
+    if (process.env.NODE_ENV !== 'production') return true;
+    return false;
   } catch {
     return false;
   }

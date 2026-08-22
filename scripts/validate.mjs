@@ -4,8 +4,13 @@ const required = [
   'package.json', 'next.config.mjs', 'vercel.json', 'app/layout.tsx', 'app/page.tsx',
   'app/send/page.tsx', 'app/receive/page.tsx', 'app/api/session/create/route.ts',
   'app/api/session/join/route.ts', 'app/api/signal/route.ts', 'app/api/health/route.ts',
-  'components/SendFlow.tsx', 'components/ReceiveFlow.tsx', 'lib/server/security.ts',
-  'lib/server/store.ts'
+  'components/SendFlow.tsx', 'components/ReceiveFlow.tsx', 'components/FileDropzone.tsx',
+  'components/FileUploader.tsx', 'components/FilePreview.tsx', 'components/FileMetadata.tsx',
+  'components/CreateTransferButton.tsx', 'components/TransferCode.tsx', 'components/ReceiverJoin.tsx',
+  'components/ConnectionStatus.tsx', 'components/TransferProgress.tsx', 'components/ErrorMessage.tsx',
+  'components/ToastNotification.tsx', 'lib/webrtc/peerConnection.ts', 'lib/webrtc/signaling.ts',
+  'lib/webrtc/dataChannel.ts', 'lib/webrtc/sender.ts', 'lib/webrtc/receiver.ts',
+  'lib/webrtc/chunkTransfer.ts', 'lib/server/security.ts', 'lib/server/store.ts'
 ];
 
 for (const file of required) await access(file);
