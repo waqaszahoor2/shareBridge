@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     if (!isSameOrigin(request)) {
       console.error('Transfer join failed: Invalid request origin');
       return noStoreJson(
-        { error: 'Unable to join transfer. Please try again.' },
+        { success: false, message: 'Unable to connect. Please try again.', error: 'Invalid request origin' },
         { status: 403 }
       );
     }
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     if (!(await enforceRateLimit(request, 'join', 30))) {
       console.error('Transfer join failed: Rate limit exceeded');
       return noStoreJson(
-        { error: 'Too many verification attempts. Please try again shortly.' },
+        { success: false, message: 'Too many verification attempts. Please try again shortly.', error: 'Rate limit exceeded' },
         { status: 429 }
       );
     }
@@ -28,25 +28,39 @@ export async function POST(request: Request) {
     } catch (parseError) {
       console.error('Transfer join failed: Invalid request body JSON', parseError);
       return noStoreJson(
-        { error: 'Unable to join transfer. Please try again.' },
+        { success: false, message: 'Invalid format. Enter a 6-digit code. Example: 583-921', error: 'Invalid request payload' },
         { status: 400 }
       );
     }
 
-    const code = normalizeCode(body.code);
+    const rawInput = body.code || '';
+    const code = normalizeCode(rawInput);
+
+    console.log(`[Receiver Join Request]\nReceived Code: ${rawInput}\nNormalized Code: ${code}`);
+
+    if (!rawInput.trim()) {
+      return noStoreJson(
+        { success: false, message: 'Please enter the transfer code.', error: 'Empty code input' },
+        { status: 400 }
+      );
+    }
+
     if (!code) {
-      console.error('Transfer join failed: Invalid code format', body.code);
+      console.error(`Transfer join failed: Code format invalid (${rawInput})`);
       return noStoreJson(
-        { error: 'Enter a valid 6-digit transfer code.' },
+        { success: false, message: 'Invalid format. Enter a 6-digit code. Example: 583-921', error: 'Invalid code format' },
         { status: 400 }
       );
     }
 
+    console.log(`Searching Redis Key: pb:session:${code}`);
     const rawSession = await get(`pb:session:${code}`);
+    console.log(`Redis Key pb:session:${code} Exists: ${Boolean(rawSession)}`);
+
     if (!rawSession) {
-      console.error(`Transfer join failed: Session code ${code} not found or expired`);
+      console.error(`Transfer join failed: Session key pb:session:${code} not found or expired`);
       return noStoreJson(
-        { error: 'Invalid or expired transfer code.' },
+        { success: false, message: 'Transfer code not found or expired. Check the code and try again. Example: 583-921', error: 'Transfer code not found' },
         { status: 404 }
       );
     }
@@ -66,10 +80,12 @@ export async function POST(request: Request) {
     if (!claimed) {
       console.error(`Transfer join failed: Code ${code} already claimed by another receiver`);
       return noStoreJson(
-        { error: 'This transfer code is already in use by another receiver.' },
+        { success: false, message: 'This transfer code is already in use by another receiver.', error: 'Receiver already claimed' },
         { status: 409 }
       );
     }
+
+    console.log(`Receiver Join Successful! Code: ${code}, Session ID: ${receiverToken}`);
 
     return noStoreJson({
       success: true,
@@ -82,7 +98,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Transfer join failed unexpectedly:', err instanceof Error ? err.message : err);
     return noStoreJson(
-      { error: 'Unable to join transfer. Please try again.' },
+      { success: false, message: 'Unable to connect. Please try again.', error: 'Server error' },
       { status: 500 }
     );
   }

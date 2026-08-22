@@ -8,11 +8,13 @@ export function createCode() {
   return String(randomInt(0, 1_000_000)).padStart(6, '0');
 }
 
-export function normalizeCode(value: unknown) {
-  if (typeof value !== 'string') return null;
-  const code = value.replace(/\D/g, '');
-  return /^\d{6}$/.test(code) ? code : null;
+export function normalizeTransferCode(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const digits = String(value).replace(/\D/g, '');
+  return /^\d{6}$/.test(digits) ? digits : null;
 }
+
+export const normalizeCode = normalizeTransferCode;
 
 export function createSecret() {
   return randomBytes(32).toString('base64url');

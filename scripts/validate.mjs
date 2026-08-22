@@ -7,10 +7,11 @@ const required = [
   'components/SendFlow.tsx', 'components/ReceiveFlow.tsx', 'components/FileDropzone.tsx',
   'components/FileUploader.tsx', 'components/FilePreview.tsx', 'components/FileMetadata.tsx',
   'components/CreateTransferButton.tsx', 'components/TransferCode.tsx', 'components/ReceiverJoin.tsx',
-  'components/ConnectionStatus.tsx', 'components/TransferProgress.tsx', 'components/ErrorMessage.tsx',
-  'components/ToastNotification.tsx', 'lib/webrtc/peerConnection.ts', 'lib/webrtc/signaling.ts',
-  'lib/webrtc/dataChannel.ts', 'lib/webrtc/sender.ts', 'lib/webrtc/receiver.ts',
-  'lib/webrtc/chunkTransfer.ts', 'lib/server/security.ts', 'lib/server/store.ts'
+  'components/CodeInput.tsx', 'components/ConnectionStatus.tsx', 'components/TransferProgress.tsx',
+  'components/ErrorMessage.tsx', 'components/ToastNotification.tsx', 'lib/codeUtils.ts',
+  'lib/webrtc/peerConnection.ts', 'lib/webrtc/signaling.ts', 'lib/webrtc/dataChannel.ts',
+  'lib/webrtc/sender.ts', 'lib/webrtc/receiver.ts', 'lib/webrtc/chunkTransfer.ts',
+  'lib/server/security.ts', 'lib/server/store.ts'
 ];
 
 for (const file of required) await access(file);
