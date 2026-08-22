@@ -60,7 +60,21 @@ export async function POST(request: Request) {
   const role = body.role === 'sender' || body.role === 'receiver' ? body.role : null;
   const token = typeof body.token === 'string' ? body.token : '';
   if (!code || !role || !token) return noStoreJson({ error: 'Invalid signaling credentials.' }, { status: 400 });
-  if (!(await authenticate(code, role, token))) return noStoreJson({ error: 'Session expired or unauthorized.' }, { status: 401 });
+  if (!(await authenticate(code, role, token))) {
+    console.error(`[Signaling Error] Unauthorized attempt for code: ${code}, role: ${role}`);
+    return noStoreJson(
+      {
+        error: 'Unable to join transfer.',
+        reasons: [
+          'Code expired',
+          'Session unavailable',
+          'Network blocked connection',
+          'Server session storage unavailable'
+        ]
+      },
+      { status: 401 }
+    );
+  }
 
   if (body.action === 'poll') {
     const messages = await readSignals(`pb:sig:${code}:${role}`);

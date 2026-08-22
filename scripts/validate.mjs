@@ -9,9 +9,10 @@ const required = [
   'components/CreateTransferButton.tsx', 'components/TransferCode.tsx', 'components/ReceiverJoin.tsx',
   'components/CodeInput.tsx', 'components/ConnectionStatus.tsx', 'components/TransferProgress.tsx',
   'components/ErrorMessage.tsx', 'components/ToastNotification.tsx', 'lib/codeUtils.ts',
-  'lib/utils/transferCode.ts', 'lib/webrtc/peerConnection.ts', 'lib/webrtc/signaling.ts',
-  'lib/webrtc/dataChannel.ts', 'lib/webrtc/sender.ts', 'lib/webrtc/receiver.ts',
-  'lib/webrtc/chunkTransfer.ts', 'lib/server/security.ts', 'lib/server/store.ts'
+  'lib/utils/code.ts', 'lib/utils/transferCode.ts', 'lib/webrtc/peerConnection.ts',
+  'lib/webrtc/signaling.ts', 'lib/webrtc/dataChannel.ts', 'lib/webrtc/sender.ts',
+  'lib/webrtc/receiver.ts', 'lib/webrtc/chunkTransfer.ts', 'lib/server/security.ts',
+  'lib/server/store.ts'
 ];
 
 for (const file of required) await access(file);

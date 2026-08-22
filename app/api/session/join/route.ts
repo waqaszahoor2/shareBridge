@@ -1,4 +1,4 @@
-import { createSecret, enforceRateLimit, hashSecret, isSameOrigin, noStoreJson, normalizeCode, SESSION_TTL_SECONDS } from '@/lib/server/security';
+import { createSecret, enforceRateLimit, hashSecret, isSameOrigin, noStoreJson, normalizeCode, safeSecretEquals, SESSION_TTL_SECONDS } from '@/lib/server/security';
 import { get, putIfAbsent } from '@/lib/server/store';
 
 export const runtime = 'nodejs';
@@ -9,7 +9,12 @@ export async function POST(request: Request) {
     if (!isSameOrigin(request)) {
       console.error('Transfer join failed: Invalid request origin');
       return noStoreJson(
-        { success: false, message: 'Unable to connect. Please try again.', error: 'Invalid request origin' },
+        {
+          success: false,
+          message: 'Unable to join transfer.',
+          error: 'Invalid request origin',
+          reasons: ['Network or cross-origin security block', 'Please reload the page and try again']
+        },
         { status: 403 }
       );
     }
@@ -17,18 +22,28 @@ export async function POST(request: Request) {
     if (!(await enforceRateLimit(request, 'join', 30))) {
       console.error('Transfer join failed: Rate limit exceeded');
       return noStoreJson(
-        { success: false, message: 'Too many verification attempts. Please try again shortly.', error: 'Rate limit exceeded' },
+        {
+          success: false,
+          message: 'Unable to join transfer.',
+          error: 'Too many verification attempts',
+          reasons: ['Rate limit exceeded. Please wait a minute and try again.']
+        },
         { status: 429 }
       );
     }
 
-    let body: { code?: string };
+    let body: { code?: string; token?: string };
     try {
-      body = (await request.json()) as { code?: string };
+      body = (await request.json()) as { code?: string; token?: string };
     } catch (parseError) {
       console.error('Transfer join failed: Invalid request body JSON', parseError);
       return noStoreJson(
-        { success: false, message: 'Invalid format. Enter a 6-digit code. Example: 583-921', error: 'Invalid request payload' },
+        {
+          success: false,
+          message: 'Unable to join transfer.',
+          error: 'Invalid request payload',
+          reasons: ['Format must be a 6-digit code. Example: 438-639']
+        },
         { status: 400 }
       );
     }
@@ -36,19 +51,24 @@ export async function POST(request: Request) {
     const rawInput = body.code || '';
     const code = normalizeCode(rawInput);
 
-    console.log(`[Receiver Join Debug]\nReceived code: ${rawInput}\nNormalized: ${code}\nSearching: pb:session:${code}`);
+    console.log(`[Receiver Join Request]\nReceived code: ${rawInput}\nNormalized: ${code}`);
 
     if (!rawInput.trim()) {
       return noStoreJson(
-        { success: false, message: 'Please enter the transfer code.', error: 'Empty code input' },
+        { success: false, message: 'Please enter transfer code.', error: 'Empty code input' },
         { status: 400 }
       );
     }
 
-    if (!code) {
+    if (!code || code.length !== 6) {
       console.error(`Transfer join failed: Code format invalid (${rawInput})`);
       return noStoreJson(
-        { success: false, message: 'Invalid format. Enter a 6-digit code. Example: 583-921', error: 'Invalid code format' },
+        {
+          success: false,
+          message: 'Unable to join transfer.',
+          error: 'Invalid format. Enter a 6-digit code. Example: 438-639',
+          reasons: ['Format must be 6 digits (XXX-XXX)']
+        },
         { status: 400 }
       );
     }
@@ -59,7 +79,17 @@ export async function POST(request: Request) {
     if (!rawSession) {
       console.error(`Transfer join failed: Session key pb:session:${code} not found or expired`);
       return noStoreJson(
-        { success: false, message: 'Transfer code not found. Check with sender.', error: 'Transfer code not found' },
+        {
+          success: false,
+          message: 'Unable to join transfer.',
+          error: 'Transfer code not found',
+          reasons: [
+            'Code expired (10-minute limit)',
+            'Session unavailable',
+            'Network blocked connection',
+            'Server session storage unavailable'
+          ]
+        },
         { status: 404 }
       );
     }
@@ -69,19 +99,51 @@ export async function POST(request: Request) {
       sessionObj = JSON.parse(rawSession);
     } catch {}
 
-    const receiverToken = createSecret();
-    const claimed = await putIfAbsent(
-      `pb:receiver:${code}`,
-      hashSecret(receiverToken),
-      SESSION_TTL_SECONDS
-    );
+    const existingReceiverHash = await get(`pb:receiver:${code}`);
+    let receiverToken: string;
 
-    if (!claimed) {
-      console.error(`Transfer join failed: Code ${code} already claimed by another receiver`);
-      return noStoreJson(
-        { success: false, message: 'This transfer code is already in use by another receiver.', error: 'Receiver already claimed' },
-        { status: 409 }
+    if (existingReceiverHash) {
+      if (body.token && safeSecretEquals(body.token, existingReceiverHash)) {
+        receiverToken = body.token;
+        console.log(`[Receiver Join] Re-authenticated existing receiver for code ${code}`);
+      } else {
+        console.error(`Transfer join failed: Code ${code} already claimed by another receiver`);
+        return noStoreJson(
+          {
+            success: false,
+            message: 'Unable to join transfer.',
+            error: 'This transfer code is already in use by another receiver.',
+            reasons: [
+              'Code already claimed by another device',
+              'Ask the sender to create a new code'
+            ]
+          },
+          { status: 409 }
+        );
+      }
+    } else {
+      receiverToken = createSecret();
+      const claimed = await putIfAbsent(
+        `pb:receiver:${code}`,
+        hashSecret(receiverToken),
+        SESSION_TTL_SECONDS
       );
+
+      if (!claimed) {
+        console.error(`Transfer join failed: Race condition on code ${code} claim`);
+        return noStoreJson(
+          {
+            success: false,
+            message: 'Unable to join transfer.',
+            error: 'This transfer code is already in use by another receiver.',
+            reasons: [
+              'Code already claimed by another device',
+              'Ask the sender to create a new code'
+            ]
+          },
+          { status: 409 }
+        );
+      }
     }
 
     console.log(`Receiver Join Successful! Code: ${code}, Session ID: ${receiverToken}`);
@@ -97,7 +159,12 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('Transfer join failed unexpectedly:', err instanceof Error ? err.message : err);
     return noStoreJson(
-      { success: false, message: 'Unable to connect. Please try again.', error: 'Server error' },
+      {
+        success: false,
+        message: 'Unable to join transfer.',
+        error: 'Unable to connect. Please try again.',
+        reasons: ['Server session storage unavailable or network connection failed']
+      },
       { status: 500 }
     );
   }
