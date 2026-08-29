@@ -47,9 +47,20 @@ export async function sendSelectedFiles(args: {
       await waitForBuffer(channel, 4 * 1024 * 1024);
       await waitForReceiverAck(item.meta.id, offset, ackedRef.current, isCancelled);
 
+      if (channel.readyState !== 'open') {
+        throw new Error('Transfer connection lost. WebRTC data channel was closed.');
+      }
       const end = Math.min(offset + chunkSize, item.file.size);
       const buffer = await item.file.slice(offset, end).arrayBuffer();
-      channel.send(buffer);
+
+      if (channel.readyState !== 'open') {
+        throw new Error('Transfer connection lost. WebRTC data channel was closed.');
+      }
+      try {
+        channel.send(buffer);
+      } catch {
+        throw new Error('Transfer connection lost while sending file data.');
+      }
       const delta = end - offset;
       offset = end;
       totalSent += delta;

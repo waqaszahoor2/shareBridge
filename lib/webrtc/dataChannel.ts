@@ -1,11 +1,20 @@
 'use client';
 
-export function sendControl(channel: RTCDataChannel, message: unknown) {
-  if (channel.readyState !== 'open') throw new Error('Transfer channel is not open.');
-  channel.send(JSON.stringify(message));
+export function sendControl(channel: RTCDataChannel | null | undefined, message: unknown): boolean {
+  if (!channel || channel.readyState !== 'open') return false;
+  try {
+    channel.send(JSON.stringify(message));
+    return true;
+  } catch (err) {
+    console.warn('Control message send skipped (channel not open):', err);
+    return false;
+  }
 }
 
 export async function waitForBuffer(channel: RTCDataChannel, highWaterMark = 1024 * 1024) {
+  if (!channel || channel.readyState !== 'open') {
+    throw new Error('Transfer connection interrupted (data channel is closed).');
+  }
   if (channel.bufferedAmount <= highWaterMark) return;
   channel.bufferedAmountLowThreshold = Math.floor(highWaterMark / 2);
 
