@@ -1,20 +1,28 @@
 'use client';
 
+const DEFAULT_STUN_SERVERS: RTCIceServer = {
+  urls: [
+    process.env.NEXT_PUBLIC_STUN_URL || 'stun:stun.l.google.com:19302',
+    'stun:stun1.l.google.com:19302',
+    'stun:stun2.l.google.com:19302',
+    'stun:stun.cloudflare.com:3478',
+    'stun:stun.services.mozilla.com:3478'
+  ]
+};
+
 export async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
     const res = await fetch('/api/turn-credentials', { cache: 'no-store' });
     if (res.ok) {
       const data = (await res.json()) as { success?: boolean; iceServers?: RTCIceServer[] };
       if (data.success && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
-        return data.iceServers;
+        return [DEFAULT_STUN_SERVERS, ...data.iceServers];
       }
     }
   } catch {}
 
   // Fallback to client environment config
-  const servers: RTCIceServer[] = [
-    { urls: process.env.NEXT_PUBLIC_STUN_URL || 'stun:stun.l.google.com:19302' }
-  ];
+  const servers: RTCIceServer[] = [DEFAULT_STUN_SERVERS];
 
   const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
   const username = process.env.NEXT_PUBLIC_TURN_USERNAME;
@@ -27,9 +35,7 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
 }
 
 export function buildIceServersSync(): RTCIceServer[] {
-  const servers: RTCIceServer[] = [
-    { urls: process.env.NEXT_PUBLIC_STUN_URL || 'stun:stun.l.google.com:19302' }
-  ];
+  const servers: RTCIceServer[] = [DEFAULT_STUN_SERVERS];
 
   const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
   const username = process.env.NEXT_PUBLIC_TURN_USERNAME;

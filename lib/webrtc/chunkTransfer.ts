@@ -1,11 +1,12 @@
 'use client';
 
-export const ACK_WINDOW = 8 * 1024 * 1024;
-export const ACK_STEP = 512 * 1024;
+export const ACK_WINDOW = 2 * 1024 * 1024; // 2MB ACK window (safe for mobile socket buffers)
+export const ACK_STEP = 256 * 1024; // 256KB ACK step
 
 export function calculateChunkSize(maxMessageSize?: number) {
-  const max = maxMessageSize || 65_536;
-  return Math.max(16 * 1024, Math.min(64 * 1024, Math.floor(max / 2)));
+  // Universal 16KB max chunk size for 100% cross-browser (Chrome, Brave, Firefox, Safari) and mobile compatibility
+  const max = maxMessageSize || 16_384;
+  return Math.min(16 * 1024, Math.max(8 * 1024, Math.floor(max / 2)));
 }
 
 export async function waitForReceiverReady(
