@@ -1,8 +1,14 @@
 import 'server-only';
 
 type LocalValue = { value: string; expiresAt: number };
-const localKv = new Map<string, LocalValue>();
-const localLists = new Map<string, { values: string[]; expiresAt: number }>();
+
+const globalStore = globalThis as unknown as {
+  _pbKv?: Map<string, LocalValue>;
+  _pbLists?: Map<string, { values: string[]; expiresAt: number }>;
+};
+
+const localKv = globalStore._pbKv ?? (globalStore._pbKv = new Map<string, LocalValue>());
+const localLists = globalStore._pbLists ?? (globalStore._pbLists = new Map<string, { values: string[]; expiresAt: number }>());
 
 function now() {
   return Date.now();

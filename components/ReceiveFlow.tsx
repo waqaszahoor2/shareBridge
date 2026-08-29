@@ -180,6 +180,20 @@ export default function ReceiveFlow() {
     }
   }
 
+  async function pickCustomDirectory() {
+    if (
+      typeof window !== 'undefined' &&
+      typeof (window as unknown as { showDirectoryPicker?: () => Promise<DirectoryHandleLike> }).showDirectoryPicker === 'function'
+    ) {
+      try {
+        directoryRef.current = await (window as unknown as { showDirectoryPicker: () => Promise<DirectoryHandleLike> }).showDirectoryPicker();
+        setToast({ id: Date.now().toString(), type: 'success', text: '✓ Save directory selected for disk streaming!' });
+      } catch {
+        // User cancelled
+      }
+    }
+  }
+
   async function connectWithCode(targetCode: string, existingReceiverId?: string, existingResumeToken?: string) {
     if (targetCode.length !== 6) return;
     setCode(targetCode);
@@ -188,19 +202,6 @@ export default function ReceiveFlow() {
     setState('joining');
     setPeerStatus('Connecting to room...');
     cancelledRef.current = false;
-
-    // Prompt for Directory Picker if supported & not yet picked (must be inside user click call stack for new joins!)
-    if (
-      !directoryRef.current &&
-      typeof window !== 'undefined' &&
-      typeof (window as unknown as { showDirectoryPicker?: () => Promise<DirectoryHandleLike> }).showDirectoryPicker === 'function'
-    ) {
-      try {
-        directoryRef.current = await (window as unknown as { showDirectoryPicker: () => Promise<DirectoryHandleLike> }).showDirectoryPicker();
-      } catch {
-        // User cancelled folder picker or browser denied — will fall back to memory/download trigger
-      }
-    }
 
     try {
       const session = await joinTransferSession({
@@ -584,6 +585,11 @@ export default function ReceiveFlow() {
           <h3>Waiting for Sender Approval</h3>
           <p>Connected to sender device. The sender is reviewing your transfer request.</p>
           <div className="actionRow">
+            {supportsDirectory && (
+              <button type="button" className="button buttonSmall buttonSecondary" onClick={pickCustomDirectory}>
+                📂 Choose Save Folder (Optional)
+              </button>
+            )}
             <button type="button" className="button buttonGhost" onClick={cancelTransfer}>
               Cancel Waiting
             </button>
