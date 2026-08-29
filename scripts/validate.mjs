@@ -3,7 +3,8 @@ import { access, readFile } from 'node:fs/promises';
 const required = [
   'package.json', 'next.config.mjs', 'vercel.json', 'app/layout.tsx', 'app/page.tsx',
   'app/send/page.tsx', 'app/receive/page.tsx', 'app/api/session/create/route.ts',
-  'app/api/session/join/route.ts', 'app/api/signal/route.ts', 'app/api/health/route.ts',
+  'app/api/session/join/route.ts', 'app/api/session/release/route.ts',
+  'app/api/turn-credentials/route.ts', 'app/api/signal/route.ts', 'app/api/health/route.ts',
   'components/SendFlow.tsx', 'components/ReceiveFlow.tsx', 'components/FileDropzone.tsx',
   'components/FileUploader.tsx', 'components/FilePreview.tsx', 'components/FileMetadata.tsx',
   'components/CreateTransferButton.tsx', 'components/TransferCode.tsx', 'components/ReceiverJoin.tsx',
@@ -12,7 +13,7 @@ const required = [
   'lib/utils/code.ts', 'lib/utils/transferCode.ts', 'lib/webrtc/peerConnection.ts',
   'lib/webrtc/signaling.ts', 'lib/webrtc/dataChannel.ts', 'lib/webrtc/sender.ts',
   'lib/webrtc/receiver.ts', 'lib/webrtc/chunkTransfer.ts', 'lib/server/security.ts',
-  'lib/server/store.ts'
+  'lib/server/store.ts', 'tests/suite.test.mjs'
 ];
 
 for (const file of required) await access(file);

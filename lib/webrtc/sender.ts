@@ -55,10 +55,10 @@ export async function sendSelectedFiles(args: {
       totalSent += delta;
 
       const tick = performance.now();
-      if (tick - lastUi > 120 || offset === item.file.size) {
+      if (tick - lastUi > 100 || offset === item.file.size) {
         const elapsedSeconds = Math.max((tick - started) / 1000, 0.001);
         const currentSpeed = totalSent / elapsedSeconds;
-        const eta = currentSpeed > 0 ? (totalBytes - totalSent) / currentSpeed : 0;
+        const eta = currentSpeed > 0 ? Math.max(0, (totalBytes - totalSent) / currentSpeed) : 0;
         onProgress(item.meta.id, offset, totalSent, currentSpeed, eta);
         lastUi = tick;
       }
@@ -70,3 +70,4 @@ export async function sendSelectedFiles(args: {
 
   sendControl(channel, { kind: 'all-complete' });
 }
+

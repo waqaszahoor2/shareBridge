@@ -9,21 +9,26 @@ interface ConnectionStatusProps {
 
 const stateLabels: Record<TransferState, { label: string; tone: string }> = {
   idle: { label: 'Ready', tone: 'neutral' },
-  preparing: { label: 'Preparing', tone: 'info' },
-  waiting: { label: 'Waiting for Peer', tone: 'warning' },
-  connecting: { label: 'Connecting', tone: 'info' },
-  approval: { label: 'Awaiting Approval', tone: 'warning' },
+  selecting: { label: 'Selecting Files', tone: 'neutral' },
+  'creating-session': { label: 'Creating Session', tone: 'info' },
+  'waiting-for-receiver': { label: 'Waiting for Receiver', tone: 'warning' },
+  joining: { label: 'Joining Room', tone: 'info' },
+  connecting: { label: 'Connecting WebRTC', tone: 'info' },
+  'waiting-for-sender-approval': { label: 'Waiting for Approval', tone: 'warning' },
+  'preparing-storage': { label: 'Preparing Stream', tone: 'info' },
   transferring: { label: 'Transferring', tone: 'active' },
   completed: { label: 'Completed', tone: 'success' },
   declined: { label: 'Declined', tone: 'danger' },
-  failed: { label: 'Failed', tone: 'danger' }
+  cancelled: { label: 'Cancelled', tone: 'danger' },
+  expired: { label: 'Code Expired', tone: 'danger' },
+  failed: { label: 'Interrupted', tone: 'danger' }
 };
 
 export default function ConnectionStatus({ state, peerStatus }: ConnectionStatusProps) {
   const current = stateLabels[state] || { label: state, tone: 'neutral' };
 
   return (
-    <div className="statusCard">
+    <div className="statusCard" aria-live="polite">
       <div className="statusHeader">
         <span className="statusDotLabel">Connection Status</span>
         <span className={`statusPill tone-${current.tone}`}>
@@ -34,3 +39,4 @@ export default function ConnectionStatus({ state, peerStatus }: ConnectionStatus
     </div>
   );
 }
+

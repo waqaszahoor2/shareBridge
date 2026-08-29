@@ -28,7 +28,14 @@ export default function TransferProgress({
           <strong>{currentFileName ? `Sending: ${currentFileName}` : 'Transferring files...'}</strong>
           <span>{percent.toFixed(1)}%</span>
         </div>
-        <div className="progressBarContainer">
+        <div
+          className="progressBarContainer"
+          role="progressbar"
+          aria-valuenow={Math.round(percent)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Transfer progress"
+        >
           <div className="progressBarFill" style={{ width: `${percent}%` }} />
         </div>
       </div>

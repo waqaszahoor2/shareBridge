@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { fileMeta } from '@/lib/client/files';
 import { createTransferSession, sendSignal, startSignalPolling } from '@/lib/client/signaling';
-import { createPeerConnection, sendControl } from '@/lib/client/webrtc';
+import { createPeerConnection } from '@/lib/webrtc/peerConnection';
+import { sendControl } from '@/lib/webrtc/dataChannel';
 import { sendSelectedFiles } from '@/lib/webrtc/sender';
+import { waitForReceiverReady } from '@/lib/webrtc/chunkTransfer';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -38,6 +40,7 @@ export default function SendFlow() {
   const [activeFileName, setActiveFileName] = useState<string>('');
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [isApproving, setIsApproving] = useState(false);
+  const [prepProgress, setPrepProgress] = useState(0);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
@@ -49,6 +52,9 @@ export default function SendFlow() {
   const cancelledRef = useRef(false);
   const sendingRef = useRef(false);
   const manifestSentRef = useRef(false);
+  const receiverReadyRef = useRef(false);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const apiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const totalBytes = useMemo(() => selected.reduce((sum, item) => sum + item.file.size, 0), [selected]);
   const totalProgress = totalBytes ? Math.min(100, (sentBytes / totalBytes) * 100) : 0;
@@ -59,7 +65,17 @@ export default function SendFlow() {
 
   useEffect(() => {
     if (!expiresAt) return;
-    const update = () => setSecondsLeft(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining === 0 && (stateRef.current === 'waiting-for-receiver' || stateRef.current === 'connecting')) {
+        cleanupConnection();
+        setState('expired');
+        setPeerStatus('Transfer code expired');
+        setError('Transfer code expired before receiver connected.');
+        setErrorReasons(['Code TTL reached (10 minutes)', 'Please generate a new code']);
+      }
+    };
     update();
     const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
@@ -69,6 +85,11 @@ export default function SendFlow() {
 
   function cleanupConnection() {
     cancelledRef.current = true;
+    if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+    if (apiTimeoutRef.current) clearTimeout(apiTimeoutRef.current);
+    connectionTimeoutRef.current = null;
+    apiTimeoutRef.current = null;
+
     stopPollRef.current?.();
     stopPollRef.current = null;
     try {
@@ -95,11 +116,16 @@ export default function SendFlow() {
       }
       return [...current, ...next];
     });
+    if (state === 'idle') setState('selecting');
   }
 
   function removeFile(id: string) {
-    if (state !== 'idle') return;
-    setSelected((items) => items.filter((item) => item.meta.id !== id));
+    if (state !== 'idle' && state !== 'selecting') return;
+    setSelected((items) => {
+      const next = items.filter((item) => item.meta.id !== id);
+      if (next.length === 0) setState('idle');
+      return next;
+    });
   }
 
   async function handleSignal(message: SignalMessage) {
@@ -122,26 +148,45 @@ export default function SendFlow() {
   }
 
   async function createRoom() {
-    if (!selected.length || state !== 'idle') return;
+    if (!selected.length || (state !== 'idle' && state !== 'selecting' && state !== 'failed')) return;
     setError('');
     setErrorReasons([]);
-    setState('preparing');
+    setState('creating-session');
     cancelledRef.current = false;
+    manifestSentRef.current = false;
+    receiverReadyRef.current = false;
 
     try {
       const fileMetas = selected.map((item) => item.meta);
-      const session = await createTransferSession(fileMetas);
+
+      const apiPromise = createTransferSession(fileMetas);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        apiTimeoutRef.current = setTimeout(() => reject(new Error('Session creation request timed out (15s).')), 15_000);
+      });
+
+      const session = await Promise.race([apiPromise, timeoutPromise]);
+      if (apiTimeoutRef.current) clearTimeout(apiTimeoutRef.current);
+
       setCode(session.code);
       const expiry = Date.now() + session.expiresIn * 1000;
       setExpiresAt(expiry);
-      setState('waiting');
+      setState('waiting-for-receiver');
       setPeerStatus('Waiting for receiver');
 
-      const pc = createPeerConnection();
+      const pc = await createPeerConnection();
       pcRef.current = pc;
       const channel = pc.createDataChannel('peerbridge-files', { ordered: true });
       channel.binaryType = 'arraybuffer';
       channelRef.current = channel;
+
+      connectionTimeoutRef.current = setTimeout(() => {
+        if (stateRef.current === 'connecting') {
+          cleanupConnection();
+          setState('failed');
+          setError('WebRTC peer connection timed out after 30 seconds.');
+          setErrorReasons(['Symmetric NAT or firewall blocking UDP/TCP peer connection', 'TRY TURN relay or check internet access']);
+        }
+      }, 30_000);
 
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
@@ -156,37 +201,49 @@ export default function SendFlow() {
 
       pc.onconnectionstatechange = () => {
         const status = pc.connectionState;
-        if (status === 'connected') setPeerStatus('Direct peer connected');
+        if (status === 'connected') {
+          if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+          setPeerStatus('Direct peer connected');
+        }
         if (status === 'failed' || status === 'disconnected') {
           setPeerStatus('Connection interrupted');
-          if (stateRef.current === 'transferring') {
-            setError('The peer connection was interrupted.');
-            setErrorReasons(['Network disconnect between devices', 'NAT firewall blocked UDP traffic']);
+          if (stateRef.current === 'transferring' || stateRef.current === 'waiting-for-sender-approval') {
+            cleanupConnection();
+            setState('failed');
+            setError('The WebRTC connection was interrupted.');
+            setErrorReasons(['Network disconnect between devices', 'NAT firewall closed media stream']);
           }
         }
       };
 
       channel.onopen = () => {
-        setState('approval');
-        setPeerStatus('Receiver connected — approve this device');
-        setToast({ id: Date.now().toString(), type: 'info', text: 'Receiver connected! Approve to send files.' });
+        if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+        setState('waiting-for-sender-approval');
+        setPeerStatus('Receiver connected — ready for approval');
+        setToast({ id: Date.now().toString(), type: 'info', text: 'Receiver connected! Review files and click Approve.' });
       };
 
       channel.onmessage = (event) => {
         if (typeof event.data !== 'string') return;
         try {
-          const message = JSON.parse(event.data) as { kind?: string; fileId?: string; receivedBytes?: number };
-          if (message.kind === 'accept' && manifestSentRef.current) {
-            setPeerStatus('Receiver approved transfer');
-            void startFileTransmission();
-          } else if (message.kind === 'decline') {
-            setState('declined');
-            setPeerStatus('Receiver declined transfer');
-          } else if (message.kind === 'cancel') {
+          const message = JSON.parse(event.data) as {
+            kind?: string;
+            fileId?: string;
+            receivedBytes?: number;
+            receiverId?: string;
+          };
+
+          if (message.kind === 'receiver-ready' || message.kind === 'manifest-ready') {
+            receiverReadyRef.current = true;
+            if (manifestSentRef.current) {
+              void startFileTransmission();
+            }
+          } else if (message.kind === 'decline' || message.kind === 'cancel') {
             cancelledRef.current = true;
-            setState('failed');
-            setError('Receiver cancelled the transfer.');
-          } else if (message.kind === 'ack' && message.fileId && Number.isFinite(message.receivedBytes)) {
+            cleanupConnection();
+            setState(message.kind === 'decline' ? 'declined' : 'cancelled');
+            setPeerStatus(message.kind === 'decline' ? 'Receiver declined transfer' : 'Receiver cancelled transfer');
+          } else if (message.kind === 'chunk-ack' && message.fileId && Number.isFinite(message.receivedBytes)) {
             ackedRef.current[message.fileId] = Math.max(0, Number(message.receivedBytes));
           } else if (message.kind === 'file-saved' && message.fileId) {
             savedRef.current[message.fileId] = true;
@@ -204,7 +261,7 @@ export default function SendFlow() {
         { code: session.code, role: 'sender', token: session.token },
         handleSignal,
         (pollError) => {
-          if (!cancelledRef.current) setError(pollError.message);
+          if (!cancelledRef.current && stateRef.current !== 'completed') setError(pollError.message);
         }
       );
 
@@ -216,46 +273,60 @@ export default function SendFlow() {
       setState('failed');
       const err = cause instanceof Error ? cause : new Error('Unable to create transfer session.');
       setError(err.message);
-      if ('reasons' in err && Array.isArray((err as Error & { reasons?: string[] }).reasons)) {
-        setErrorReasons((err as Error & { reasons?: string[] }).reasons!);
-      } else {
-        setErrorReasons([
-          'Server unavailable or network unreachable',
-          'Redis session store error in production',
-          'Missing environment configuration',
-          'Invalid file selection payload'
-        ]);
+      setErrorReasons([
+        'Server unavailable or network unreachable',
+        'Redis session store error in production',
+        'Invalid file selection payload'
+      ]);
+    }
+  }
+
+  async function approveReceiver() {
+    const channel = channelRef.current;
+    if (!channel || channel.readyState !== 'open') {
+      setError('Unable to approve transfer.');
+      setErrorReasons(['Connection lost', 'Receiver disconnected']);
+      return;
+    }
+    if (manifestSentRef.current || isApproving) return;
+
+    setIsApproving(true);
+    manifestSentRef.current = true;
+    setPrepProgress(10);
+    setPeerStatus('Approving transfer & starting receiver stream...');
+
+    try {
+      sendControl(channel, {
+        kind: 'transfer-approved',
+        sessionId: code,
+        files: selected.map((item) => item.meta)
+      });
+      setPrepProgress(40);
+
+      await waitForReceiverReady(
+        () => receiverReadyRef.current,
+        () => cancelledRef.current,
+        30_000
+      );
+      setPrepProgress(90);
+
+      await startFileTransmission();
+    } catch (cause) {
+      setIsApproving(false);
+      if (!cancelledRef.current) {
+        cleanupConnection();
+        setState('failed');
+        setError(cause instanceof Error ? cause.message : 'Receiver acknowledgement failed.');
+        setErrorReasons(['Receiver did not respond to approval within 30 seconds', 'Data channel interrupted']);
       }
     }
   }
 
-  function approveReceiver() {
-    const channel = channelRef.current;
-    if (!channel || channel.readyState !== 'open') {
-      setError('Unable to approve transfer.');
-      setErrorReasons([
-        'Connection lost',
-        'Session expired',
-        'Receiver disconnected',
-        'WebRTC negotiation failed'
-      ]);
-      return;
-    }
-    if (manifestSentRef.current) return;
-    setIsApproving(true);
-    manifestSentRef.current = true;
-    setPeerStatus('Preparing transfer & awaiting receiver acceptance...');
-    sendControl(channel, {
-      kind: 'manifest',
-      type: 'TRANSFER_APPROVED',
-      sessionId: code,
-      files: selected.map((item) => item.meta)
-    });
-  }
-
   function declineReceiver() {
     try {
-      if (channelRef.current?.readyState === 'open') sendControl(channelRef.current, { kind: 'cancel' });
+      if (channelRef.current?.readyState === 'open') {
+        sendControl(channelRef.current, { kind: 'decline' });
+      }
     } catch {}
     cleanupConnection();
     setState('declined');
@@ -270,6 +341,7 @@ export default function SendFlow() {
 
     if (!channel || !pc || channel.readyState !== 'open') {
       sendingRef.current = false;
+      setIsApproving(false);
       setError('Transfer channel is not connected.');
       return;
     }
@@ -302,12 +374,27 @@ export default function SendFlow() {
       setToast({ id: Date.now().toString(), type: 'success', text: 'All files sent successfully!' });
     } catch (cause) {
       if (!cancelledRef.current) {
+        cleanupConnection();
         setState('failed');
         setError(cause instanceof Error ? cause.message : 'File transfer failed.');
       }
     } finally {
       sendingRef.current = false;
+      setIsApproving(false);
     }
+  }
+
+  function resetToStart() {
+    cleanupConnection();
+    setSelected([]);
+    setState('idle');
+    setCode('');
+    setSentBytes(0);
+    setSpeed(0);
+    setEta(0);
+    setError('');
+    setErrorReasons([]);
+    setIsApproving(false);
   }
 
   return (
@@ -318,7 +405,7 @@ export default function SendFlow() {
         <Link href="/" className="backLink">
           ← Back
         </Link>
-        <h2>Send Files</h2>
+        <h1>Send Files</h1>
         <p className="subtitle">Select files to generate a secure 6-digit transfer code for the receiver.</p>
       </div>
 
@@ -326,10 +413,10 @@ export default function SendFlow() {
 
       {error && (
         <ErrorMessage
-          title="Transfer Error"
+          title="Transfer Alert"
           message={error}
           reasons={errorReasons}
-          onRetry={state === 'failed' ? () => setState('idle') : undefined}
+          onRetry={state === 'failed' || state === 'expired' ? createRoom : undefined}
           onDismiss={() => {
             setError('');
             setErrorReasons([]);
@@ -337,7 +424,7 @@ export default function SendFlow() {
         />
       )}
 
-      {state === 'idle' && (
+      {(state === 'idle' || state === 'selecting') && (
         <div className="senderStepBox">
           <FileDropzone onFilesSelected={addFiles} maxFiles={MAX_FILES} />
 
@@ -358,7 +445,15 @@ export default function SendFlow() {
         </div>
       )}
 
-      {state === 'waiting' && code && (
+      {state === 'creating-session' && (
+        <div className="senderStepBox connectingCard">
+          <div className="spinner" aria-hidden="true" />
+          <h3>Generating Transfer Code...</h3>
+          <p>Allocating secure session and WebRTC channel.</p>
+        </div>
+      )}
+
+      {state === 'waiting-for-receiver' && code && (
         <div className="senderStepBox">
           <TransferCode
             code={code}
@@ -367,13 +462,18 @@ export default function SendFlow() {
           />
           <FileMetadata files={selected} totalBytes={totalBytes} />
           <FilePreview files={selected} readOnly />
+          <div className="actionRow">
+            <button type="button" className="button buttonGhost" onClick={resetToStart}>
+              Cancel Session
+            </button>
+          </div>
         </div>
       )}
 
-      {state === 'approval' && (
+      {state === 'waiting-for-sender-approval' && (
         <div className="senderStepBox approvalCard">
           <h3>Receiver Connected</h3>
-          <p>A receiver device is ready to connect. Do you approve sending these files?</p>
+          <p>A receiver device entered code <strong>{code}</strong>. Approve to stream these files directly to their device.</p>
           <FileMetadata files={selected} totalBytes={totalBytes} />
           <FilePreview files={selected} readOnly />
 
@@ -381,15 +481,12 @@ export default function SendFlow() {
             <div className="prepStatusCard" role="status">
               <div className="prepHeader">
                 <span className="spinner" aria-hidden="true" />
-                <strong>Preparing transfer...</strong>
+                <strong>Preparing Direct Transfer...</strong>
               </div>
               <div className="prepChecklist">
-                <span>✓ Connection verified</span>
-                <span>✓ Transfer manifest sent</span>
-                <span>⏳ Awaiting receiver acceptance &amp; buffer allocation...</span>
-              </div>
-              <div className="prepEstimate">
-                Estimated preparation time: <strong>{totalBytes > 100 * 1024 * 1024 ? '15-30 seconds' : totalBytes > 10 * 1024 * 1024 ? '5-10 seconds' : '2 seconds'}</strong>
+                <span>✓ Receiver verified</span>
+                <span>✓ Transfer manifest approved</span>
+                <span>⏳ Initializing receiver storage stream...</span>
               </div>
             </div>
           )}
@@ -403,10 +500,10 @@ export default function SendFlow() {
             >
               {isApproving ? (
                 <>
-                  <span className="spinner" aria-hidden="true" /> ⏳ Preparing Transfer...
+                  <span className="spinner" aria-hidden="true" /> Approve &amp; Send Files
                 </>
               ) : (
-                '✓ Approve & Share Files'
+                '✓ Approve & Send Files'
               )}
             </button>
             <button type="button" className="button buttonGhost" onClick={declineReceiver} disabled={isApproving}>
@@ -428,6 +525,11 @@ export default function SendFlow() {
           />
           <FileMetadata files={selected} totalBytes={totalBytes} />
           <FilePreview files={selected} readOnly />
+          <div className="actionRow">
+            <button type="button" className="button buttonGhost" onClick={declineReceiver}>
+              Cancel Transfer
+            </button>
+          </div>
         </div>
       )}
 
@@ -435,22 +537,46 @@ export default function SendFlow() {
         <div className="senderStepBox successCard">
           <div className="successIcon">🎉</div>
           <h3>Transfer Complete!</h3>
-          <p>All files were successfully transferred to the receiving device.</p>
+          <p>All files were successfully sent directly to the receiving device.</p>
           <FileMetadata files={selected} totalBytes={totalBytes} />
-          <button
-            type="button"
-            className="button buttonPrimary"
-            onClick={() => {
-              cleanupConnection();
-              setSelected([]);
-              setState('idle');
-              setCode('');
-            }}
-          >
+          <button type="button" className="button buttonPrimary" onClick={resetToStart}>
             Send More Files
           </button>
+        </div>
+      )}
+
+      {(state === 'declined' || state === 'cancelled' || state === 'expired' || state === 'failed') && (
+        <div className="senderStepBox failureCard">
+          <h3>
+            {state === 'declined'
+              ? 'Receiver Declined'
+              : state === 'cancelled'
+              ? 'Transfer Cancelled'
+              : state === 'expired'
+              ? 'Transfer Code Expired'
+              : 'Transfer Interrupted'}
+          </h3>
+          <p>
+            {state === 'declined'
+              ? 'The receiver device declined or disconnected.'
+              : state === 'cancelled'
+              ? 'The transfer was cancelled.'
+              : state === 'expired'
+              ? 'The 10-minute code expired before completion.'
+              : 'The peer connection was lost or timed out.'}
+          </p>
+
+          <div className="actionRow">
+            <button type="button" className="button buttonPrimary" onClick={createRoom} disabled={selected.length === 0}>
+              Generate New Code
+            </button>
+            <button type="button" className="button buttonGhost" onClick={resetToStart}>
+              Start Over
+            </button>
+          </div>
         </div>
       )}
     </main>
   );
 }
+

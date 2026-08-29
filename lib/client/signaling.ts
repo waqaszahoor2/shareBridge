@@ -3,6 +3,7 @@
 export {
   createTransferSession,
   joinTransferSession,
+  releaseTransferSession,
   sendSignal,
   pollSignals,
   startSignalPolling

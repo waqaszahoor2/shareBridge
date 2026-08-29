@@ -6,7 +6,9 @@ export type SessionResponse = {
   success?: boolean;
   code: string;
   sessionId: string;
+  receiverId?: string;
   token: string;
+  resumeToken?: string;
   expiresIn: number;
   expiresAt?: string;
   files?: FileMeta[];
@@ -49,8 +51,14 @@ export async function createTransferSession(files: FileMeta[] = []) {
   return postJson<SessionResponse>('/api/session/create', { files });
 }
 
-export async function joinTransferSession(code: string) {
-  return postJson<SessionResponse>('/api/session/join', { code });
+export async function joinTransferSession(args: { code: string; receiverId?: string; resumeToken?: string }) {
+  return postJson<SessionResponse>('/api/session/join', args);
+}
+
+export async function releaseTransferSession(args: { code: string; receiverId?: string; resumeToken?: string }) {
+  try {
+    await postJson<{ success: boolean }>('/api/session/release', args);
+  } catch {}
 }
 
 export async function sendSignal(args: {
@@ -60,11 +68,14 @@ export async function sendSignal(args: {
   type: SignalType;
   payload: unknown;
 }) {
-  return postJson<{ ok: true; id: string }>('/api/signal', { action: 'send', ...args });
+  return postJson<{ ok: true; id: string; seq: number }>('/api/signal', { action: 'send', ...args });
 }
 
-export async function pollSignals(args: { code: string; role: PeerRole; token: string }) {
-  return postJson<{ messages: SignalMessage[] }>('/api/signal', { action: 'poll', ...args });
+export async function pollSignals(args: { code: string; role: PeerRole; token: string; since?: number }) {
+  return postJson<{ success: boolean; messages: SignalMessage[]; lastSeq?: number }>('/api/signal', {
+    action: 'poll',
+    ...args
+  });
 }
 
 export function startSignalPolling(
@@ -74,15 +85,19 @@ export function startSignalPolling(
 ) {
   let active = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let delay = 650;
+  let delay = 600;
+  let lastSeq = 0;
   const seen = new Set<string>();
 
   const loop = async () => {
     if (!active) return;
     try {
-      const { messages } = await pollSignals(args);
-      delay = 650;
-      for (const message of messages) {
+      const res = await pollSignals({ ...args, since: lastSeq });
+      delay = 600;
+      if (res.lastSeq && res.lastSeq > lastSeq) {
+        lastSeq = res.lastSeq;
+      }
+      for (const message of res.messages || []) {
         if (seen.has(message.id)) continue;
         seen.add(message.id);
         if (seen.size > 500) {
@@ -92,7 +107,7 @@ export function startSignalPolling(
         await onMessage(message);
       }
     } catch (error) {
-      delay = Math.min(delay * 1.7, 5000);
+      delay = Math.min(delay * 1.6, 4000);
       onError(error instanceof Error ? error : new Error('Signaling poll failed.'));
     } finally {
       if (active) timer = setTimeout(loop, delay);
@@ -105,3 +120,4 @@ export function startSignalPolling(
     if (timer) clearTimeout(timer);
   };
 }
+

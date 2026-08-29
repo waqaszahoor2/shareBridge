@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 export function BrandMark() {
@@ -16,9 +16,22 @@ export function BrandMark() {
 
 export default function AppHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const toggleBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false);
+        toggleBtnRef.current?.focus();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileMenuOpen]);
 
   function closeMenu() {
     setMobileMenuOpen(false);
+    toggleBtnRef.current?.focus();
   }
 
   return (
@@ -41,6 +54,7 @@ export default function AppHeader() {
           </Link>
 
           <button
+            ref={toggleBtnRef}
             type="button"
             className="mobileMenuToggle"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -53,7 +67,7 @@ export default function AppHeader() {
       </div>
 
       {mobileMenuOpen && (
-        <div className="mobileNavDrawer" role="dialog" aria-modal="true">
+        <div className="mobileNavDrawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
           <nav className="mobileNavList">
             <a href="/#how" onClick={closeMenu}>How it works</a>
             <a href="/#features" onClick={closeMenu}>Features</a>
@@ -67,3 +81,4 @@ export default function AppHeader() {
     </header>
   );
 }
+

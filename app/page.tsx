@@ -54,8 +54,8 @@ export default function HomePage() {
         <div className="sectionHeading"><span>How it works</span><h2>Three steps. No account required.</h2></div>
         <div className="stepGrid">
           <article><em>01</em><h3>Select</h3><p>Drop one or more files. PeerBridge automatically detects names, sizes and file types.</p></article>
-          <article><em>02</em><h3>Connect</h3><p>Share the temporary 6-digit code. The receiving browser uses it to establish WebRTC.</p></article>
-          <article><em>03</em><h3>Transfer</h3><p>After receiver approval, file bytes stream directly between devices in small controlled chunks.</p></article>
+          <article><em>02</em><h3>Connect</h3><p>Share the temporary 6-digit code. The receiving browser enters it to establish WebRTC.</p></article>
+          <article><em>03</em><h3>Transfer</h3><p>After sender approval, file bytes stream directly between devices in small controlled chunks.</p></article>
         </div>
       </section>
 
@@ -75,7 +75,7 @@ export default function HomePage() {
           <div><span>01</span><p><strong>10-minute code expiry</strong>Old transfer rooms disappear automatically.</p></div>
           <div><span>02</span><p><strong>One receiver per code</strong>The first valid receiver claims the room.</p></div>
           <div><span>03</span><p><strong>Server-side token validation</strong>Session secrets are stored only as SHA-256 hashes.</p></div>
-          <div><span>04</span><p><strong>Receiver approval</strong>No file transfer begins before the receiver accepts.</p></div>
+          <div><span>04</span><p><strong>Sender approval</strong>No file transfer begins before the sender reviews and approves.</p></div>
         </div>
       </section>
     </main>
