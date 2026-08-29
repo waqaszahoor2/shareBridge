@@ -389,11 +389,26 @@ export default function ReceiveFlow() {
         activeRef.current = null;
         writeChainRef.current = writeChainRef.current.then(async () => {
           if (context.received !== context.meta.size) throw new Error('Received file size mismatch.');
+
+          const blob = new Blob(context.chunks, { type: context.meta.type });
+          if (
+            context.meta.type.includes('text') ||
+            context.meta.extension === '.txt' ||
+            context.meta.name.endsWith('.txt') ||
+            context.meta.size < 500_000
+          ) {
+            try {
+              const text = await blob.text();
+              if (text && !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 200))) {
+                setReceivedTexts((prev) => ({ ...prev, [context.meta.name]: text }));
+              }
+            } catch {}
+          }
+
           const writer = await context.writerPromise;
           if (writer) {
             await writer.close();
           } else {
-            const blob = new Blob(context.chunks, { type: context.meta.type });
             triggerFileDownload(blob, context.meta.name);
           }
           if (channel.readyState === 'open') {
@@ -489,6 +504,20 @@ export default function ReceiveFlow() {
     setPeerStatus('Transfer cancelled by receiver');
   }
 
+  const [receivedTexts, setReceivedTexts] = useState<Record<string, string>>({});
+  const [copiedFile, setCopiedFile] = useState<string | null>(null);
+
+  async function handleCopyText(text: string, filename: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedFile(filename);
+      setToast({ id: Date.now().toString(), type: 'success', text: `✓ Copied "${filename}" text to clipboard!` });
+      setTimeout(() => setCopiedFile(null), 3000);
+    } catch {
+      setToast({ id: Date.now().toString(), type: 'info', text: 'Please select text manually to copy.' });
+    }
+  }
+
   function resetToStart() {
     cleanupConnection(true);
     setIncoming([]);
@@ -499,6 +528,8 @@ export default function ReceiveFlow() {
     setEta(0);
     setError('');
     setErrorReasons([]);
+    setReceivedTexts({});
+    setCopiedFile(null);
   }
 
   return (
@@ -592,7 +623,34 @@ export default function ReceiveFlow() {
         <div className="receiverStepBox successCard">
           <div className="successIcon">🎉</div>
           <h3>Transfer Complete!</h3>
-          <p>All files have been successfully received and saved.</p>
+          <p>All files and text content have been successfully received.</p>
+          
+          {Object.keys(receivedTexts).length > 0 && (
+            <div className="receivedTextSection">
+              <h4 className="textSectionTitle">📝 Received Text Snippet</h4>
+              {Object.entries(receivedTexts).map(([filename, textContent]) => (
+                <div key={filename} className="receivedTextCard">
+                  <div className="receivedTextHeader">
+                    <span className="textFileNameLabel">{filename}</span>
+                    <button
+                      type="button"
+                      className="button buttonSmall buttonPrimary copyTextBtn"
+                      onClick={() => handleCopyText(textContent, filename)}
+                    >
+                      {copiedFile === filename ? '✓ Copied to Clipboard!' : '📋 Copy Text'}
+                    </button>
+                  </div>
+                  <textarea
+                    className="receivedTextArea"
+                    readOnly
+                    value={textContent}
+                    rows={Math.min(10, Math.max(3, textContent.split('\n').length))}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           <FileMetadata files={incoming} totalBytes={totalBytes} />
           <button type="button" className="button buttonPrimary" onClick={resetToStart}>
             Receive Another Transfer

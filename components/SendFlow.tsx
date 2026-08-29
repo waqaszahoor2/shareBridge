@@ -397,6 +397,20 @@ export default function SendFlow() {
     setIsApproving(false);
   }
 
+  const [sendMode, setSendMode] = useState<'files' | 'text'>('files');
+  const [textNoteInput, setTextNoteInput] = useState('');
+  const [textFileName, setTextFileName] = useState('shared-note.txt');
+
+  function handleAddTextNote() {
+    if (!textNoteInput.trim()) return;
+    const name = textFileName.trim() || 'shared-note.txt';
+    const safeName = name.endsWith('.txt') ? name : `${name}.txt`;
+    const blob = new Blob([textNoteInput], { type: 'text/plain;charset=utf-8' });
+    const file = new File([blob], safeName, { type: 'text/plain;charset=utf-8' });
+    addFiles([file]);
+    setTextNoteInput('');
+  }
+
   return (
     <main className="shell sendLayout">
       <ToastNotification toast={toast} onClose={() => setToast(null)} />
@@ -405,8 +419,8 @@ export default function SendFlow() {
         <Link href="/" className="backLink">
           ← Back
         </Link>
-        <h1>Send Files</h1>
-        <p className="subtitle">Select files to generate a secure 6-digit transfer code for the receiver.</p>
+        <h1>Send Files &amp; Text</h1>
+        <p className="subtitle">Select files or type a text snippet to generate a 6-digit transfer code for the receiver.</p>
       </div>
 
       <ConnectionStatus state={state} peerStatus={peerStatus} />
@@ -426,7 +440,63 @@ export default function SendFlow() {
 
       {(state === 'idle' || state === 'selecting') && (
         <div className="senderStepBox">
-          <FileDropzone onFilesSelected={addFiles} maxFiles={MAX_FILES} />
+          <div className="modeTabs" role="tablist" aria-label="Sharing Mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sendMode === 'files'}
+              className={`tabBtn ${sendMode === 'files' ? 'tabBtnActive' : ''}`}
+              onClick={() => setSendMode('files')}
+            >
+              📁 Share Files
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={sendMode === 'text'}
+              className={`tabBtn ${sendMode === 'text' ? 'tabBtnActive' : ''}`}
+              onClick={() => setSendMode('text')}
+            >
+              📝 Share Text / Snippet
+            </button>
+          </div>
+
+          {sendMode === 'files' ? (
+            <FileDropzone onFilesSelected={addFiles} maxFiles={MAX_FILES} />
+          ) : (
+            <div className="textInputCard">
+              <div className="textInputHeader">
+                <label htmlFor="sharedTextInput"><strong>Type or Paste Text to Share</strong></label>
+                <input
+                  type="text"
+                  className="textFileNameInput"
+                  value={textFileName}
+                  onChange={(e) => setTextFileName(e.target.value)}
+                  placeholder="filename.txt"
+                  aria-label="Filename for text note"
+                />
+              </div>
+              <textarea
+                id="sharedTextInput"
+                className="textShareArea"
+                rows={6}
+                value={textNoteInput}
+                onChange={(e) => setTextNoteInput(e.target.value)}
+                placeholder="Type or paste passwords, code snippets, links, messages or notes here..."
+              />
+              <div className="textMetaRow">
+                <span>{textNoteInput.length} characters · {textNoteInput.trim() ? textNoteInput.trim().split(/\s+/).length : 0} words</span>
+                <button
+                  type="button"
+                  className="button buttonSmall buttonSecondary"
+                  onClick={handleAddTextNote}
+                  disabled={!textNoteInput.trim()}
+                >
+                  + Add Text to Transfer
+                </button>
+              </div>
+            </div>
+          )}
 
           {selected.length > 0 && (
             <div className="selectedSection">

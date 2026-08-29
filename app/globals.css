@@ -498,6 +498,141 @@ button { color: inherit; }
   .footerInner { flex-direction: column; text-align: center; gap: 10px; padding: 20px 0; }
 }
 
+/* TEXT SHARING & TABS */
+.modeTabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--line);
+  padding: 4px;
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
+.tabBtn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.tabBtnActive {
+  background: var(--panel-strong);
+  color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.textInputCard {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.textInputHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.textFileNameInput {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  outline: none;
+}
+.textShareArea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--bg);
+  resize: vertical;
+  outline: none;
+}
+.textShareArea:focus {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(109, 74, 255, 0.12);
+}
+.textMetaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.buttonSecondary {
+  background: #f0ecff;
+  color: var(--purple);
+  border: 1px solid rgba(109, 74, 255, 0.2);
+}
+.buttonSecondary:hover {
+  background: #e4ddff;
+}
+
+.receivedTextSection {
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.textSectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+.receivedTextCard {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.receivedTextHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.textFileNameLabel {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--purple);
+}
+.receivedTextArea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--panel-strong);
+  resize: vertical;
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
