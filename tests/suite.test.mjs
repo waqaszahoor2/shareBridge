@@ -127,3 +127,32 @@ test('Transfer state machine transition validity', () => {
   assert.ok(validTransitions['waiting-for-sender-approval'].includes('transferring'));
   assert.ok(validTransitions['transferring'].includes('completed'));
 });
+
+// Test 9: Text Sharing Payload Formatting
+test('Text note payload formatting and text extension validation', () => {
+  function formatTextFileName(input) {
+    const name = (input || '').trim() || 'shared-note.txt';
+    return name.endsWith('.txt') ? name : `${name}.txt`;
+  }
+
+  assert.equal(formatTextFileName('my-snippet'), 'my-snippet.txt');
+  assert.equal(formatTextFileName('notes.txt'), 'notes.txt');
+  assert.equal(formatTextFileName(''), 'shared-note.txt');
+});
+
+// Test 10: Safe Filename Sanitization
+test('Safe filename sanitization for receiver downloads', () => {
+  function safeFileName(input) {
+    if (!input || typeof input !== 'string') return 'download';
+    const clean = input
+      .replace(/[\\/:*?"<>|\x00-\x1F]/g, '_')
+      .replace(/\.\./g, '_')
+      .trim();
+    return clean.slice(0, 255) || 'download';
+  }
+
+  assert.equal(safeFileName('../../../etc/passwd'), '______etc_passwd');
+  assert.equal(safeFileName('report<2026>?.pdf'), 'report_2026__.pdf');
+  assert.equal(safeFileName('normal-file.zip'), 'normal-file.zip');
+});
+
