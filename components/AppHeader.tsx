@@ -95,34 +95,37 @@ export default function AppHeader() {
         </nav>
 
         <div className="headerActions">
-          {/* Theme Selector Toggle */}
-          <div className="themeSelector" role="group" aria-label="Theme mode switcher">
+          {/* Segmented Theme Switcher Control */}
+          <div className="themeSegmentedControl desktopTheme" role="group" aria-label="Theme mode switcher">
             <button
               type="button"
-              className={`themeBtn ${theme === 'light' ? 'themeBtnActive' : ''}`}
+              className={`themeSegmentBtn ${theme === 'light' ? 'themeSegmentActive' : ''}`}
               onClick={() => handleThemeChange('light')}
               title="Light mode"
               aria-label="Set light mode"
             >
-              ☀️
+              <span className="themeIcon">☀️</span>
+              <span className="themeLabel">Light</span>
             </button>
             <button
               type="button"
-              className={`themeBtn ${theme === 'dark' ? 'themeBtnActive' : ''}`}
+              className={`themeSegmentBtn ${theme === 'dark' ? 'themeSegmentActive' : ''}`}
               onClick={() => handleThemeChange('dark')}
               title="Dark mode"
               aria-label="Set dark mode"
             >
-              🌙
+              <span className="themeIcon">🌙</span>
+              <span className="themeLabel">Dark</span>
             </button>
             <button
               type="button"
-              className={`themeBtn ${theme === 'system' ? 'themeBtnActive' : ''}`}
+              className={`themeSegmentBtn ${theme === 'system' ? 'themeSegmentActive' : ''}`}
               onClick={() => handleThemeChange('system')}
               title="Auto system appearance"
               aria-label="Set auto system appearance mode"
             >
-              💻
+              <span className="themeIcon">💻</span>
+              <span className="themeLabel">Auto</span>
             </button>
           </div>
 
@@ -150,29 +153,31 @@ export default function AppHeader() {
             <a href="/#features" onClick={closeMenu}>Features</a>
             <a href="/#security" onClick={closeMenu}>Security</a>
 
-            <div className="mobileThemeRow">
-              <span>Theme:</span>
-              <button
-                type="button"
-                className={`themeBtn ${theme === 'light' ? 'themeBtnActive' : ''}`}
-                onClick={() => handleThemeChange('light')}
-              >
-                ☀️ Light
-              </button>
-              <button
-                type="button"
-                className={`themeBtn ${theme === 'dark' ? 'themeBtnActive' : ''}`}
-                onClick={() => handleThemeChange('dark')}
-              >
-                🌙 Dark
-              </button>
-              <button
-                type="button"
-                className={`themeBtn ${theme === 'system' ? 'themeBtnActive' : ''}`}
-                onClick={() => handleThemeChange('system')}
-              >
-                💻 Auto
-              </button>
+            <div className="mobileThemeSegmentedControl">
+              <span className="mobileThemeTitle">Theme Mode</span>
+              <div className="themeSegmentedControl fullWidth">
+                <button
+                  type="button"
+                  className={`themeSegmentBtn ${theme === 'light' ? 'themeSegmentActive' : ''}`}
+                  onClick={() => handleThemeChange('light')}
+                >
+                  <span>☀️ Light</span>
+                </button>
+                <button
+                  type="button"
+                  className={`themeSegmentBtn ${theme === 'dark' ? 'themeSegmentActive' : ''}`}
+                  onClick={() => handleThemeChange('dark')}
+                >
+                  <span>🌙 Dark</span>
+                </button>
+                <button
+                  type="button"
+                  className={`themeSegmentBtn ${theme === 'system' ? 'themeSegmentActive' : ''}`}
+                  onClick={() => handleThemeChange('system')}
+                >
+                  <span>💻 Auto</span>
+                </button>
+              </div>
             </div>
 
             <Link className="button buttonFull" href={actionHref} onClick={closeMenu}>
