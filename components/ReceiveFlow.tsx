@@ -309,7 +309,12 @@ export default function ReceiveFlow() {
         { code: session.code, role: 'receiver', token: session.token },
         (message) => handleSignal(message, session),
         (pollError) => {
-          if (!cancelledRef.current && stateRef.current !== 'completed') setError(pollError.message);
+          if (
+            !cancelledRef.current &&
+            (stateRef.current === 'joining' || stateRef.current === 'connecting')
+          ) {
+            setError(pollError.message);
+          }
         }
       );
     } catch (cause) {
@@ -333,6 +338,10 @@ export default function ReceiveFlow() {
   function configureChannel(channel: RTCDataChannel) {
     channel.onopen = () => {
       if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+      if (stopPollRef.current) {
+        stopPollRef.current();
+        stopPollRef.current = null;
+      }
       setState('waiting-for-sender-approval');
       setPeerStatus('Connected — waiting for sender approval');
 

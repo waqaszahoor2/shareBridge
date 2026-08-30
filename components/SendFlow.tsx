@@ -218,6 +218,10 @@ export default function SendFlow() {
 
       channel.onopen = () => {
         if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+        if (stopPollRef.current) {
+          stopPollRef.current();
+          stopPollRef.current = null;
+        }
         setState('waiting-for-sender-approval');
         setPeerStatus('Receiver connected — ready for approval');
         setToast({ id: Date.now().toString(), type: 'info', text: 'Receiver connected! Review files and click Approve.' });
@@ -261,7 +265,12 @@ export default function SendFlow() {
         { code: session.code, role: 'sender', token: session.token },
         handleSignal,
         (pollError) => {
-          if (!cancelledRef.current && stateRef.current !== 'completed') setError(pollError.message);
+          if (
+            !cancelledRef.current &&
+            (stateRef.current === 'connecting' || stateRef.current === 'idle')
+          ) {
+            setError(pollError.message);
+          }
         }
       );
 
