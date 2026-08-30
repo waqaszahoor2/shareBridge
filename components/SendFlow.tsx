@@ -371,6 +371,12 @@ export default function SendFlow() {
 
       setState('completed');
       setPeerStatus('All files transferred successfully');
+      // Purge room keys from Upstash Redis immediately on completion
+      fetch('/api/session/release', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, purge: true })
+      }).catch(() => undefined);
       setToast({ id: Date.now().toString(), type: 'success', text: 'All files sent successfully!' });
     } catch (cause) {
       if (!cancelledRef.current) {

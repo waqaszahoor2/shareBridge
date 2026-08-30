@@ -40,26 +40,38 @@ export function generateTurnCredentials(usernamePrefix = 'peerbridge', ttlSecond
   const secret = process.env.TURN_SECRET;
   const rawUrls = process.env.TURN_URLS || process.env.NEXT_PUBLIC_TURN_URL;
 
-  if (!secret || !rawUrls) {
-    const defaultTurn = process.env.NEXT_PUBLIC_TURN_URL;
-    const defaultUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
-    const defaultPass = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-    if (defaultTurn && defaultUser && defaultPass) {
-      return [{ urls: defaultTurn, username: defaultUser, credential: defaultPass }];
-    }
-    return [];
+  if (secret && rawUrls) {
+    const expiry = Math.floor(Date.now() / 1000) + ttlSeconds;
+    const username = `${expiry}:${usernamePrefix}`;
+    const credential = createHmac('sha1', secret).update(username).digest('base64');
+    const urlList = rawUrls.split(',').map((u) => u.trim()).filter(Boolean);
+
+    return [
+      {
+        urls: urlList,
+        username,
+        credential
+      }
+    ];
   }
 
-  const expiry = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const username = `${expiry}:${usernamePrefix}`;
-  const credential = createHmac('sha1', secret).update(username).digest('base64');
-  const urlList = rawUrls.split(',').map((u) => u.trim()).filter(Boolean);
+  const defaultTurn = process.env.NEXT_PUBLIC_TURN_URL;
+  const defaultUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
+  const defaultPass = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
+  if (defaultTurn && defaultUser && defaultPass) {
+    return [{ urls: defaultTurn, username: defaultUser, credential: defaultPass }];
+  }
 
+  // Fallback public TURN relay servers for mobile 4G/5G cross-network NAT traversal
   return [
     {
-      urls: urlList,
-      username,
-      credential
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turns:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
     }
   ];
 }

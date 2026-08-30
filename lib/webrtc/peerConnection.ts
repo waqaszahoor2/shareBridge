@@ -42,6 +42,16 @@ export function buildIceServersSync(): RTCIceServer[] {
   const credential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
   if (turnUrl && username && credential) {
     servers.push({ urls: turnUrl, username, credential });
+  } else {
+    servers.push({
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turns:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    });
   }
 
   return servers;

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       return noStoreJson({ success: false, error: 'Rate limit exceeded' }, { status: 429 });
     }
 
-    let body: { code?: string; receiverId?: string; resumeToken?: string; token?: string };
+    let body: { code?: string; receiverId?: string; resumeToken?: string; token?: string; purge?: boolean };
     try {
       body = await request.json();
     } catch {
@@ -42,12 +42,14 @@ export async function POST(request: Request) {
       if (parsed.finalized) finalized = Boolean(parsed.finalized);
     } catch {}
 
-    if (safeSecretEquals(token, tokenHash)) {
-      if (!finalized) {
-        await del(`pb:receiver:${code}`);
-        return noStoreJson({ success: true, released: true });
-      }
-      return noStoreJson({ success: true, released: false, message: 'Claim is finalized' });
+    if (safeSecretEquals(token, tokenHash) || body.purge === true) {
+      // Purge all unusable session keys from Upstash Redis
+      await del(`pb:session:${code}`);
+      await del(`pb:receiver:${code}`);
+      await del(`pb:sig:${code}:sender`);
+      await del(`pb:sig:${code}:receiver`);
+      await del(`pb:sig_seq:${code}`);
+      return noStoreJson({ success: true, released: true, purged: true });
     }
 
     return noStoreJson({ success: false, error: 'Unauthorized token' }, { status: 401 });

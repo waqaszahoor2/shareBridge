@@ -280,13 +280,20 @@ export default function ReceiveFlow() {
           if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
           setPeerStatus('Connected — waiting for sender approval');
         }
+        if (pc.connectionState === 'disconnected') {
+          setPeerStatus('Reconnecting peer network...');
+        }
         if (pc.connectionState === 'failed') {
           setPeerStatus('Connection interrupted');
           if (!cancelledRef.current && stateRef.current !== 'completed') {
             cleanupConnection(false);
             setState('failed');
             setError('The WebRTC connection was interrupted.');
-            setErrorReasons(['Sender closed connection', 'Network timeout / NAT firewall blocking']);
+            setErrorReasons([
+              'Cellular network switched or NAT firewall blocked direct P2P',
+              'Sender closed connection or device screen turned off',
+              'Try connecting again — TURN relay will auto-assist cross-network connections'
+            ]);
           }
         }
       };
@@ -452,6 +459,12 @@ export default function ReceiveFlow() {
           setState('completed');
           setPeerStatus('Transfer completed');
           if (typeof window !== 'undefined') sessionStorage.removeItem(STORAGE_KEY);
+          // Purge room keys from Upstash Redis immediately on completion
+          fetch('/api/session/release', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, purge: true })
+          }).catch(() => undefined);
           setToast({ id: Date.now().toString(), type: 'success', text: 'All files received and saved!' });
         });
         return;
