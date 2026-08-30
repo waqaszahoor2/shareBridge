@@ -205,7 +205,7 @@ export default function SendFlow() {
           if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
           setPeerStatus('Direct peer connected');
         }
-        if (status === 'failed' || status === 'disconnected') {
+        if (status === 'failed') {
           setPeerStatus('Connection interrupted');
           if (stateRef.current === 'transferring' || stateRef.current === 'waiting-for-sender-approval') {
             cleanupConnection();

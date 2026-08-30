@@ -255,10 +255,10 @@ export default function ReceiveFlow() {
           if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
           setPeerStatus('Connected — waiting for sender approval');
         }
-        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        if (pc.connectionState === 'failed') {
           setPeerStatus('Connection interrupted');
           if (!cancelledRef.current && stateRef.current !== 'completed') {
-            cleanupConnection(true);
+            cleanupConnection(false);
             setState('failed');
             setError('The WebRTC connection was interrupted.');
             setErrorReasons(['Sender closed connection', 'Network timeout / NAT firewall blocking']);

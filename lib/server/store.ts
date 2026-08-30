@@ -21,14 +21,32 @@ function cleanLocalKey(key: string) {
   if (list && list.expiresAt <= now()) localLists.delete(key);
 }
 
-export function hasRedis() {
-  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+function getRedisConfig(): { url?: string; token?: string } {
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_REST_API_URL ||
+    process.env.VERCEL_KV_API_URL ||
+    process.env.REST_KV_URL;
+
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_TOKEN ||
+    process.env.VERCEL_KV_API_TOKEN ||
+    process.env.REST_KV_TOKEN;
+
+  return { url, token };
+}
+
+export function hasRedis(): boolean {
+  const { url, token } = getRedisConfig();
+  return Boolean(url && token);
 }
 
 async function redisCommand<T = unknown>(args: Array<string | number>): Promise<T> {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) throw new Error('Missing environment variable: UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN');
+  const { url, token } = getRedisConfig();
+  if (!url || !token) {
+    throw new Error('Missing environment variable: UPSTASH_REDIS_REST_URL/KV_REST_API_URL or token');
+  }
 
   const response = await fetch(url, {
     method: 'POST',

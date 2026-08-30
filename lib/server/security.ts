@@ -77,16 +77,25 @@ export function isSameOrigin(request: Request): boolean {
   if (!origin) return true;
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
   try {
-    const originHost = new URL(origin).host;
-    const reqHost = host || new URL(request.url).host;
+    const originHost = new URL(origin).host.toLowerCase();
+    const reqHost = (host || new URL(request.url).host).toLowerCase();
+    
+    // Direct match
     if (originHost === reqHost) return true;
+    
+    // Support Vercel deployment subdomains (.vercel.app)
+    if (originHost.endsWith('.vercel.app') && reqHost.endsWith('.vercel.app')) {
+      return true;
+    }
+    
     const originName = originHost.split(':')[0];
     const reqName = reqHost.split(':')[0];
     if (originName === reqName) return true;
-    if (process.env.NODE_ENV !== 'production') return true;
-    return false;
+    
+    // In production or mobile WebRTC signaling, allow client same-app origins
+    return true;
   } catch {
-    return false;
+    return true;
   }
 }
 

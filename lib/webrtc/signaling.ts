@@ -87,6 +87,7 @@ export function startSignalPolling(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let delay = 600;
   let lastSeq = 0;
+  let consecutiveErrors = 0;
   const seen = new Set<string>();
 
   const loop = async () => {
@@ -94,6 +95,7 @@ export function startSignalPolling(
     try {
       const res = await pollSignals({ ...args, since: lastSeq });
       delay = 600;
+      consecutiveErrors = 0;
       if (res.lastSeq && res.lastSeq > lastSeq) {
         lastSeq = res.lastSeq;
       }
@@ -107,8 +109,12 @@ export function startSignalPolling(
         await onMessage(message);
       }
     } catch (error) {
-      delay = Math.min(delay * 1.6, 4000);
-      onError(error instanceof Error ? error : new Error('Signaling poll failed.'));
+      consecutiveErrors += 1;
+      delay = Math.min(delay * 1.5, 3000);
+      // Only surface error to UI if 5 consecutive poll attempts fail (mobile 4G network resiliency)
+      if (consecutiveErrors >= 5) {
+        onError(error instanceof Error ? error : new Error('Signaling poll failed.'));
+      }
     } finally {
       if (active) timer = setTimeout(loop, delay);
     }
