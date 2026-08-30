@@ -74,6 +74,31 @@ export default function ReceiveFlow() {
   const [activeFileName, setActiveFileName] = useState('');
   const [supportsDirectory, setSupportsDirectory] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [receivedTexts, setReceivedTexts] = useState<Record<string, string>>({});
+  const [copiedFile, setCopiedFile] = useState<string | null>(null);
+
+  async function handleCopyText(text: string, filename: string) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedFile(filename);
+      setToast({ id: Date.now().toString(), type: 'success', text: `✓ Copied "${filename}" to clipboard!` });
+      setTimeout(() => setCopiedFile(null), 3000);
+    } catch {
+      setToast({ id: Date.now().toString(), type: 'error', text: 'Failed to copy text. Please select text manually.' });
+    }
+  }
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
@@ -503,20 +528,6 @@ export default function ReceiveFlow() {
     cleanupConnection(true);
     setState('cancelled');
     setPeerStatus('Transfer cancelled by receiver');
-  }
-
-  const [receivedTexts, setReceivedTexts] = useState<Record<string, string>>({});
-  const [copiedFile, setCopiedFile] = useState<string | null>(null);
-
-  async function handleCopyText(text: string, filename: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedFile(filename);
-      setToast({ id: Date.now().toString(), type: 'success', text: `✓ Copied "${filename}" text to clipboard!` });
-      setTimeout(() => setCopiedFile(null), 3000);
-    } catch {
-      setToast({ id: Date.now().toString(), type: 'info', text: 'Please select text manually to copy.' });
-    }
   }
 
   function resetToStart() {
