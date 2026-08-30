@@ -587,7 +587,7 @@ export default function ReceiveFlow() {
         />
       )}
 
-      {state === 'idle' && !error && (
+      {state === 'idle' && (
         <div className="receiverStepBox">
           <ReceiverJoin onJoin={(digits) => connectWithCode(digits)} loading={false} />
         </div>
