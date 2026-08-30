@@ -514,6 +514,130 @@ button { color: inherit; }
 .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; display: inline-block; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ===== FLOW HEADER & ERROR ALERT STYLES ===== */
+.flowHeader {
+  position: relative;
+  text-align: center;
+  margin-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.backLink {
+  align-self: center;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--muted);
+  text-decoration: none;
+  margin-bottom: 4px;
+  transition: color 0.2s ease;
+}
+.backLink:hover {
+  color: var(--purple-2);
+}
+
+.flowHeader h1 {
+  font-size: clamp(32px, 5vw, 44px);
+  font-weight: 850;
+  color: var(--ink);
+  letter-spacing: -1px;
+  margin: 0;
+  line-height: 1.15;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0;
+  max-width: 520px;
+  line-height: 1.5;
+}
+
+.errorAlert {
+  display: flex;
+  gap: 16px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 20px;
+  padding: 24px;
+  margin-block: 20px;
+  color: var(--ink);
+  animation: fadeIn 0.2s ease-out;
+  text-align: left;
+}
+
+.errorIcon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.errorContent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  text-align: left;
+}
+
+.errorTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--red);
+  margin: 0;
+}
+
+.errorMainText {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.errorReasonsBox {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reasonsLabel {
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--red);
+}
+
+.reasonsList {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reasonsList li {
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.errorActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
 /* ===== RESPONSIVE BREAKPOINTS (Desktop / Tablet / Mobile) ===== */
 
 /* Desktop (> 1024px) */

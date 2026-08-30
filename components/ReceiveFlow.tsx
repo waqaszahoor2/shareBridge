@@ -576,15 +576,18 @@ export default function ReceiveFlow() {
           title="Connection Alert"
           message={error}
           reasons={errorReasons}
-          onRetry={state === 'failed' ? () => connectWithCode(code) : undefined}
-          onDismiss={() => {
-            setError('');
-            setErrorReasons([]);
+          onRetry={() => {
+            if (code && code.length === 6) {
+              connectWithCode(code);
+            } else {
+              resetToStart();
+            }
           }}
+          onDismiss={resetToStart}
         />
       )}
 
-      {state === 'idle' && (
+      {state === 'idle' && !error && (
         <div className="receiverStepBox">
           <ReceiverJoin onJoin={(digits) => connectWithCode(digits)} loading={false} />
         </div>
@@ -688,25 +691,21 @@ export default function ReceiveFlow() {
         </div>
       )}
 
-      {(state === 'cancelled' || state === 'declined' || state === 'expired' || state === 'failed') && (
+      {(state === 'cancelled' || state === 'declined' || state === 'expired') && !error && (
         <div className="receiverStepBox failureCard">
           <h3>
             {state === 'cancelled'
               ? 'Transfer Cancelled'
               : state === 'declined'
               ? 'Transfer Declined'
-              : state === 'expired'
-              ? 'Transfer Code Expired'
-              : 'Connection Interrupted'}
+              : 'Transfer Code Expired'}
           </h3>
           <p>
             {state === 'cancelled'
               ? 'The transfer was cancelled.'
               : state === 'declined'
               ? 'The sender declined the transfer request.'
-              : state === 'expired'
-              ? 'The transfer code expired.'
-              : 'Could not connect to the sender.'}
+              : 'The transfer code expired.'}
           </p>
           <div className="actionRow">
             <button type="button" className="button buttonPrimary" onClick={resetToStart}>
