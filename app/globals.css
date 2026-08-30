@@ -797,11 +797,11 @@ button { color: inherit; }
 
 .glassCard3D {
   position: absolute;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--panel);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 20px 40px rgba(109, 74, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   padding: 12px 18px;
   border-radius: 18px;
   display: flex;
@@ -813,7 +813,7 @@ button { color: inherit; }
 }
 .glassCard3D:hover {
   transform: translateZ(24px) scale(1.04);
-  box-shadow: 0 24px 48px rgba(109, 74, 255, 0.22);
+  box-shadow: 0 24px 48px rgba(109, 74, 255, 0.28);
 }
 .gc1 { top: 12%; left: -6%; transform: translateZ(30px); }
 .gc2 { bottom: 18%; right: -6%; transform: translateZ(45px); }
@@ -821,7 +821,7 @@ button { color: inherit; }
 
 .gcIcon {
   font-size: 22px;
-  background: rgba(121, 96, 255, 0.12);
+  background: rgba(121, 96, 255, 0.15);
   width: 40px;
   height: 40px;
   border-radius: 12px;
@@ -830,7 +830,7 @@ button { color: inherit; }
   justify-content: center;
 }
 .gcText { display: flex; flex-direction: column; text-align: left; }
-.gcText strong { font-size: 13.5px; color: var(--ink); }
+.gcText strong { font-size: 13.5px; color: var(--ink); font-weight: 750; }
 .gcText span { font-size: 11.5px; color: var(--muted); }
 
 .ring3D {
@@ -874,39 +874,42 @@ button { color: inherit; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  color: var(--ink);
+  text-decoration: none;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
 }
 .quickCard3D:hover {
   transform: translateY(-6px);
-  border-color: rgba(121, 96, 255, 0.3);
-  box-shadow: 0 20px 40px rgba(121, 96, 255, 0.12);
+  border-color: rgba(121, 96, 255, 0.4);
+  box-shadow: 0 20px 40px rgba(121, 96, 255, 0.16);
 }
 .quickCardBadge {
   position: absolute;
   top: 18px;
   right: 18px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 750;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 20px;
-  background: #f0ecff;
-  color: var(--purple);
+  background: rgba(109, 74, 255, 0.15);
+  color: var(--purple-2);
+  border: 1px solid rgba(109, 74, 255, 0.25);
 }
 .quickIcon3D {
   font-size: 28px;
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: rgba(121, 96, 255, 0.1);
+  background: rgba(121, 96, 255, 0.14);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.quickCard3D strong { font-size: 17px; color: var(--ink); display: block; margin-bottom: 4px; }
+.quickCard3D strong { font-size: 17px; color: var(--ink); font-weight: 750; display: block; margin-bottom: 4px; }
 .quickCard3D span { font-size: 13px; color: var(--muted); line-height: 1.5; }
-.cardArrow { margin-top: auto; font-size: 18px; color: var(--purple); font-weight: 700; }
+.cardArrow { margin-top: auto; font-size: 18px; color: var(--purple-2); font-weight: 750; }
 
 .stepGrid3D {
   display: grid;
@@ -929,12 +932,13 @@ button { color: inherit; }
 .stepNum {
   font-size: 13px;
   font-weight: 800;
-  color: var(--purple);
-  background: #f0ecff;
+  color: var(--purple-2);
+  background: rgba(109, 74, 255, 0.15);
   padding: 4px 10px;
   border-radius: 12px;
   display: inline-block;
   margin-bottom: 14px;
+  border: 1px solid rgba(109, 74, 255, 0.25);
 }
 .stepCard3D h3 { font-size: 18px; margin-bottom: 8px; color: var(--ink); }
 .stepCard3D p { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
@@ -978,8 +982,9 @@ button { color: inherit; }
 .securityList3D span {
   font-size: 12px;
   font-weight: 800;
-  color: var(--purple);
-  background: #f0ecff;
+  color: var(--purple-2);
+  background: rgba(109, 74, 255, 0.15);
+  border: 1px solid rgba(109, 74, 255, 0.25);
   padding: 2px 8px;
   border-radius: 8px;
   display: inline-block;

@@ -11,7 +11,7 @@ export default function HomePage() {
           <p className="heroLead">Move files, code snippets and text notes directly between devices using a temporary 6-digit code. Zero server file uploads.</p>
           <div className="heroActions">
             <Link className="button buttonGlow" href="/send">Send files &amp; text <span>→</span></Link>
-            <Link className="button buttonGhost" href="/receive">Receive transfer <span>↓</span></Link>
+            <Link className="button buttonGhost" href="/receive">Receive files <span>↓</span></Link>
           </div>
           <div className="trustRow">
             <span>✓ No permanent uploads</span>
@@ -48,7 +48,7 @@ export default function HomePage() {
           <div className="quickCardBadge">Instant Join</div>
           <div className="quickIcon3D">⚡</div>
           <div>
-            <strong>Receive Transfer</strong>
+            <strong>Receive Files</strong>
             <span>Enter a 6-digit code to connect and receive files automatically.</span>
           </div>
           <span className="cardArrow">→</span>
