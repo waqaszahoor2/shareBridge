@@ -20,19 +20,34 @@ type ThemeMode = 'system' | 'light' | 'dark';
 export default function AppHeader() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>('system');
   const toggleBtnRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && mobileMenuOpen) {
-        setMobileMenuOpen(false);
-        toggleBtnRef.current?.focus();
+      if (e.key === 'Escape') {
+        if (dropdownOpen) setDropdownOpen(false);
+        if (mobileMenuOpen) {
+          setMobileMenuOpen(false);
+          toggleBtnRef.current?.focus();
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, dropdownOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('peerbridge_theme') as ThemeMode | null;
@@ -65,10 +80,12 @@ export default function AppHeader() {
     setTheme(mode);
     localStorage.setItem('peerbridge_theme', mode);
     applyTheme(mode);
+    setDropdownOpen(false);
   }
 
   function closeMenu() {
     setMobileMenuOpen(false);
+    setDropdownOpen(false);
     toggleBtnRef.current?.focus();
   }
 
@@ -79,6 +96,12 @@ export default function AppHeader() {
   const isSendPage = pathname === '/send';
   const actionHref = isSendPage ? '/receive' : '/send';
   const actionLabel = isSendPage ? 'Receive files ↓' : 'Send files →';
+
+  const themeLabels: Record<ThemeMode, { icon: string; label: string }> = {
+    light: { icon: '☀️', label: 'Light' },
+    dark: { icon: '🌙', label: 'Dark' },
+    system: { icon: '💻', label: 'System' }
+  };
 
   return (
     <header className="siteHeader">
@@ -95,38 +118,57 @@ export default function AppHeader() {
         </nav>
 
         <div className="headerActions">
-          {/* Segmented Theme Switcher Control */}
-          <div className="themeSegmentedControl desktopTheme" role="group" aria-label="Theme mode switcher">
+          {/* Vertical Popover Theme Switcher Dropdown */}
+          <div className="themeDropdownWrapper" ref={dropdownRef}>
             <button
               type="button"
-              className={`themeSegmentBtn ${theme === 'light' ? 'themeSegmentActive' : ''}`}
-              onClick={() => handleThemeChange('light')}
-              title="Light mode"
-              aria-label="Set light mode"
+              className="themeDropdownTrigger"
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              aria-expanded={dropdownOpen}
+              aria-label="Select theme appearance"
+              title="Select theme appearance"
             >
-              <span className="themeIcon">☀️</span>
-              <span className="themeLabel">Light</span>
+              <span className="triggerIcon">{themeLabels[theme].icon}</span>
+              <span className="triggerLabel">{themeLabels[theme].label}</span>
+              <span className="triggerCaret" aria-hidden="true">{dropdownOpen ? '▲' : '▼'}</span>
             </button>
-            <button
-              type="button"
-              className={`themeSegmentBtn ${theme === 'dark' ? 'themeSegmentActive' : ''}`}
-              onClick={() => handleThemeChange('dark')}
-              title="Dark mode"
-              aria-label="Set dark mode"
-            >
-              <span className="themeIcon">🌙</span>
-              <span className="themeLabel">Dark</span>
-            </button>
-            <button
-              type="button"
-              className={`themeSegmentBtn ${theme === 'system' ? 'themeSegmentActive' : ''}`}
-              onClick={() => handleThemeChange('system')}
-              title="Auto system appearance"
-              aria-label="Set auto system appearance mode"
-            >
-              <span className="themeIcon">💻</span>
-              <span className="themeLabel">Auto</span>
-            </button>
+
+            {dropdownOpen && (
+              <div className="themeVerticalDropdown" role="menu" aria-label="Theme options">
+                <button
+                  type="button"
+                  className={`themeDropdownItem ${theme === 'light' ? 'itemActive' : ''}`}
+                  onClick={() => handleThemeChange('light')}
+                  role="menuitem"
+                >
+                  <span className="itemIcon">☀️</span>
+                  <span className="itemLabel">Light</span>
+                  {theme === 'light' && <span className="itemCheck">✓</span>}
+                </button>
+
+                <button
+                  type="button"
+                  className={`themeDropdownItem ${theme === 'dark' ? 'itemActive' : ''}`}
+                  onClick={() => handleThemeChange('dark')}
+                  role="menuitem"
+                >
+                  <span className="itemIcon">🌙</span>
+                  <span className="itemLabel">Dark</span>
+                  {theme === 'dark' && <span className="itemCheck">✓</span>}
+                </button>
+
+                <button
+                  type="button"
+                  className={`themeDropdownItem ${theme === 'system' ? 'itemActive' : ''}`}
+                  onClick={() => handleThemeChange('system')}
+                  role="menuitem"
+                >
+                  <span className="itemIcon">💻</span>
+                  <span className="itemLabel">System (Auto)</span>
+                  {theme === 'system' && <span className="itemCheck">✓</span>}
+                </button>
+              </div>
+            )}
           </div>
 
           <Link className="button buttonSmall desktopSendBtn" href={actionHref}>
@@ -153,29 +195,37 @@ export default function AppHeader() {
             <a href="/#features" onClick={closeMenu}>Features</a>
             <a href="/#security" onClick={closeMenu}>Security</a>
 
-            <div className="mobileThemeSegmentedControl">
+            <div className="mobileThemeDropdownRow">
               <span className="mobileThemeTitle">Theme Mode</span>
-              <div className="themeSegmentedControl fullWidth">
+              <div className="themeVerticalList">
                 <button
                   type="button"
-                  className={`themeSegmentBtn ${theme === 'light' ? 'themeSegmentActive' : ''}`}
+                  className={`themeDropdownItem ${theme === 'light' ? 'itemActive' : ''}`}
                   onClick={() => handleThemeChange('light')}
                 >
-                  <span>☀️ Light</span>
+                  <span className="itemIcon">☀️</span>
+                  <span className="itemLabel">Light</span>
+                  {theme === 'light' && <span className="itemCheck">✓</span>}
                 </button>
+
                 <button
                   type="button"
-                  className={`themeSegmentBtn ${theme === 'dark' ? 'themeSegmentActive' : ''}`}
+                  className={`themeDropdownItem ${theme === 'dark' ? 'itemActive' : ''}`}
                   onClick={() => handleThemeChange('dark')}
                 >
-                  <span>🌙 Dark</span>
+                  <span className="itemIcon">🌙</span>
+                  <span className="itemLabel">Dark</span>
+                  {theme === 'dark' && <span className="itemCheck">✓</span>}
                 </button>
+
                 <button
                   type="button"
-                  className={`themeSegmentBtn ${theme === 'system' ? 'themeSegmentActive' : ''}`}
+                  className={`themeDropdownItem ${theme === 'system' ? 'itemActive' : ''}`}
                   onClick={() => handleThemeChange('system')}
                 >
-                  <span>💻 Auto</span>
+                  <span className="itemIcon">💻</span>
+                  <span className="itemLabel">System (Auto)</span>
+                  {theme === 'system' && <span className="itemCheck">✓</span>}
                 </button>
               </div>
             </div>
