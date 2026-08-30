@@ -1000,6 +1000,183 @@ button { color: inherit; }
   .gc3 { display: none; }
 }
 
+/* TUTORIAL MODAL & HELP BUTTON STYLES */
+.navHelpBtn {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.2s ease;
+}
+.navHelpBtn:hover {
+  color: var(--purple);
+}
+
+.mobileHelpBtn {
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--purple-2);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.tutorialModalCard {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  max-width: 480px;
+  width: 100%;
+  padding: 28px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.tutorialHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.tutorialStepBadge {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--purple);
+  background: rgba(109, 74, 255, 0.12);
+  padding: 4px 12px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.modalCloseBtn {
+  background: var(--line);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.modalCloseBtn:hover {
+  background: var(--purple);
+  color: #ffffff;
+}
+
+.tutorialBody {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.tutorialIconBox {
+  font-size: 48px;
+  width: 88px;
+  height: 88px;
+  border-radius: 24px;
+  background: rgba(109, 74, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+.tutorialTitle {
+  font-size: 22px;
+  font-weight: 850;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+.tutorialDesc {
+  font-size: 14.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.tutorialStepDots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.stepDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: var(--line);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+.stepDot.dotActive {
+  width: 24px;
+  border-radius: 10px;
+  background: var(--purple);
+}
+
+.tutorialFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.footerLeft, .footerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skipBtn {
+  color: var(--muted);
+}
+.skipBtn:hover {
+  color: var(--ink);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

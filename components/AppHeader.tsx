@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import TutorialModal from '@/components/TutorialModal';
+
 export function BrandMark() {
   return (
     <span className="brandMark" aria-hidden="true">
@@ -21,6 +23,7 @@ export default function AppHeader() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>('system');
   const toggleBtnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -89,6 +92,11 @@ export default function AppHeader() {
     toggleBtnRef.current?.focus();
   }
 
+  function openTutorial() {
+    setTutorialOpen(true);
+    closeMenu();
+  }
+
   // Header action button logic:
   // If on /send page -> show Receive files
   // If on /receive page -> show Send files
@@ -104,139 +112,150 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="siteHeader">
-      <div className="shell headerInner">
-        <Link className="brand" href="/" aria-label="PeerBridge home" onClick={closeMenu}>
-          <BrandMark />
-          <span>PeerBridge</span>
-        </Link>
-
-        <nav className="headerNav desktopNav" aria-label="Primary navigation">
-          <a href="/#how">How it works</a>
-          <a href="/#features">Features</a>
-          <a href="/#security">Security</a>
-        </nav>
-
-        <div className="headerActions">
-          {/* Vertical Popover Theme Switcher Dropdown */}
-          <div className="themeDropdownWrapper" ref={dropdownRef}>
-            <button
-              type="button"
-              className="themeDropdownTrigger"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              aria-expanded={dropdownOpen}
-              aria-label="Select theme appearance"
-              title="Select theme appearance"
-            >
-              <span className="triggerIcon">{themeLabels[theme].icon}</span>
-              <span className="triggerLabel">{themeLabels[theme].label}</span>
-              <span className="triggerCaret" aria-hidden="true">{dropdownOpen ? '▲' : '▼'}</span>
-            </button>
-
-            {dropdownOpen && (
-              <div className="themeVerticalDropdown" role="menu" aria-label="Theme options">
-                <button
-                  type="button"
-                  className={`themeDropdownItem ${theme === 'light' ? 'itemActive' : ''}`}
-                  onClick={() => handleThemeChange('light')}
-                  role="menuitem"
-                >
-                  <span className="itemIcon">☀️</span>
-                  <span className="itemLabel">Light</span>
-                  {theme === 'light' && <span className="itemCheck">✓</span>}
-                </button>
-
-                <button
-                  type="button"
-                  className={`themeDropdownItem ${theme === 'dark' ? 'itemActive' : ''}`}
-                  onClick={() => handleThemeChange('dark')}
-                  role="menuitem"
-                >
-                  <span className="itemIcon">🌙</span>
-                  <span className="itemLabel">Dark</span>
-                  {theme === 'dark' && <span className="itemCheck">✓</span>}
-                </button>
-
-                <button
-                  type="button"
-                  className={`themeDropdownItem ${theme === 'system' ? 'itemActive' : ''}`}
-                  onClick={() => handleThemeChange('system')}
-                  role="menuitem"
-                >
-                  <span className="itemIcon">💻</span>
-                  <span className="itemLabel">System (Auto)</span>
-                  {theme === 'system' && <span className="itemCheck">✓</span>}
-                </button>
-              </div>
-            )}
-          </div>
-
-          <Link className="button buttonSmall desktopSendBtn" href={actionHref}>
-            {actionLabel}
+    <>
+      <header className="siteHeader">
+        <div className="shell headerInner">
+          <Link className="brand" href="/" aria-label="PeerBridge home" onClick={closeMenu}>
+            <BrandMark />
+            <span>PeerBridge</span>
           </Link>
 
-          <button
-            ref={toggleBtnRef}
-            type="button"
-            className="mobileMenuToggle"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            aria-expanded={mobileMenuOpen}
-          >
-            {mobileMenuOpen ? '✕' : '☰'}
-          </button>
-        </div>
-      </div>
+          <nav className="headerNav desktopNav" aria-label="Primary navigation">
+            <a href="/#how">How it works</a>
+            <a href="/#features">Features</a>
+            <a href="/#security">Security</a>
+            <button type="button" className="navHelpBtn" onClick={openTutorial}>
+              ❓ How to Use
+            </button>
+          </nav>
 
-      {mobileMenuOpen && (
-        <div className="mobileNavDrawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
-          <nav className="mobileNavList">
-            <a href="/#how" onClick={closeMenu}>How it works</a>
-            <a href="/#features" onClick={closeMenu}>Features</a>
-            <a href="/#security" onClick={closeMenu}>Security</a>
+          <div className="headerActions">
+            {/* Vertical Popover Theme Switcher Dropdown */}
+            <div className="themeDropdownWrapper" ref={dropdownRef}>
+              <button
+                type="button"
+                className="themeDropdownTrigger"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                aria-expanded={dropdownOpen}
+                aria-label="Select theme appearance"
+                title="Select theme appearance"
+              >
+                <span className="triggerIcon">{themeLabels[theme].icon}</span>
+                <span className="triggerLabel">{themeLabels[theme].label}</span>
+                <span className="triggerCaret" aria-hidden="true">{dropdownOpen ? '▲' : '▼'}</span>
+              </button>
 
-            <div className="mobileThemeDropdownRow">
-              <span className="mobileThemeTitle">Theme Mode</span>
-              <div className="themeVerticalList">
-                <button
-                  type="button"
-                  className={`themeDropdownItem ${theme === 'light' ? 'itemActive' : ''}`}
-                  onClick={() => handleThemeChange('light')}
-                >
-                  <span className="itemIcon">☀️</span>
-                  <span className="itemLabel">Light</span>
-                  {theme === 'light' && <span className="itemCheck">✓</span>}
-                </button>
+              {dropdownOpen && (
+                <div className="themeVerticalDropdown" role="menu" aria-label="Theme options">
+                  <button
+                    type="button"
+                    className={`themeDropdownItem ${theme === 'light' ? 'itemActive' : ''}`}
+                    onClick={() => handleThemeChange('light')}
+                    role="menuitem"
+                  >
+                    <span className="itemIcon">☀️</span>
+                    <span className="itemLabel">Light</span>
+                    {theme === 'light' && <span className="itemCheck">✓</span>}
+                  </button>
 
-                <button
-                  type="button"
-                  className={`themeDropdownItem ${theme === 'dark' ? 'itemActive' : ''}`}
-                  onClick={() => handleThemeChange('dark')}
-                >
-                  <span className="itemIcon">🌙</span>
-                  <span className="itemLabel">Dark</span>
-                  {theme === 'dark' && <span className="itemCheck">✓</span>}
-                </button>
+                  <button
+                    type="button"
+                    className={`themeDropdownItem ${theme === 'dark' ? 'itemActive' : ''}`}
+                    onClick={() => handleThemeChange('dark')}
+                    role="menuitem"
+                  >
+                    <span className="itemIcon">🌙</span>
+                    <span className="itemLabel">Dark</span>
+                    {theme === 'dark' && <span className="itemCheck">✓</span>}
+                  </button>
 
-                <button
-                  type="button"
-                  className={`themeDropdownItem ${theme === 'system' ? 'itemActive' : ''}`}
-                  onClick={() => handleThemeChange('system')}
-                >
-                  <span className="itemIcon">💻</span>
-                  <span className="itemLabel">System (Auto)</span>
-                  {theme === 'system' && <span className="itemCheck">✓</span>}
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    className={`themeDropdownItem ${theme === 'system' ? 'itemActive' : ''}`}
+                    onClick={() => handleThemeChange('system')}
+                    role="menuitem"
+                  >
+                    <span className="itemIcon">💻</span>
+                    <span className="itemLabel">System (Auto)</span>
+                    {theme === 'system' && <span className="itemCheck">✓</span>}
+                  </button>
+                </div>
+              )}
             </div>
 
-            <Link className="button buttonFull" href={actionHref} onClick={closeMenu}>
+            <Link className="button buttonSmall desktopSendBtn" href={actionHref}>
               {actionLabel}
             </Link>
-          </nav>
+
+            <button
+              ref={toggleBtnRef}
+              type="button"
+              className="mobileMenuToggle"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? '✕' : '☰'}
+            </button>
+          </div>
         </div>
-      )}
-    </header>
+
+        {mobileMenuOpen && (
+          <div className="mobileNavDrawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation Menu">
+            <nav className="mobileNavList">
+              <a href="/#how" onClick={closeMenu}>How it works</a>
+              <a href="/#features" onClick={closeMenu}>Features</a>
+              <a href="/#security" onClick={closeMenu}>Security</a>
+              <button type="button" className="mobileHelpBtn" onClick={openTutorial}>
+                ❓ How to Use Tutorial
+              </button>
+
+              <div className="mobileThemeDropdownRow">
+                <span className="mobileThemeTitle">Theme Mode</span>
+                <div className="themeVerticalList">
+                  <button
+                    type="button"
+                    className={`themeDropdownItem ${theme === 'light' ? 'itemActive' : ''}`}
+                    onClick={() => handleThemeChange('light')}
+                  >
+                    <span className="itemIcon">☀️</span>
+                    <span className="itemLabel">Light</span>
+                    {theme === 'light' && <span className="itemCheck">✓</span>}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`themeDropdownItem ${theme === 'dark' ? 'itemActive' : ''}`}
+                    onClick={() => handleThemeChange('dark')}
+                  >
+                    <span className="itemIcon">🌙</span>
+                    <span className="itemLabel">Dark</span>
+                    {theme === 'dark' && <span className="itemCheck">✓</span>}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={`themeDropdownItem ${theme === 'system' ? 'itemActive' : ''}`}
+                    onClick={() => handleThemeChange('system')}
+                  >
+                    <span className="itemIcon">💻</span>
+                    <span className="itemLabel">System (Auto)</span>
+                    {theme === 'system' && <span className="itemCheck">✓</span>}
+                  </button>
+                </div>
+              </div>
+
+              <Link className="button buttonFull" href={actionHref} onClick={closeMenu}>
+                {actionLabel}
+              </Link>
+            </nav>
+          </div>
+        )}
+      </header>
+
+      {/* Auto First-Time Visitor & Manual Help Modal */}
+      <TutorialModal isOpen={tutorialOpen} onClose={() => setTutorialOpen(false)} />
+    </>
   );
 }
 
