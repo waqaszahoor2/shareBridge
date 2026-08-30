@@ -2,14 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const TUTORIAL_KEY = 'peerbridge_tutorial_seen';
+const TUTORIAL_KEY = 'peerbridge_tutorial_seen_v1';
 
 interface TutorialModalProps {
   isOpen?: boolean;
   onClose?: () => void;
+  autoOpenOnLanding?: boolean;
 }
 
-export default function TutorialModal({ isOpen: externalIsOpen, onClose }: TutorialModalProps) {
+export default function TutorialModal({
+  isOpen: externalIsOpen,
+  onClose,
+  autoOpenOnLanding = false
+}: TutorialModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -19,15 +24,22 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
   useEffect(() => {
     if (externalIsOpen !== undefined) {
       setIsOpen(externalIsOpen);
-    } else {
-      if (typeof window !== 'undefined') {
-        const seen = localStorage.getItem(TUTORIAL_KEY);
-        if (!seen) {
-          setIsOpen(true);
-        }
-      }
+      if (externalIsOpen) setCurrentStep(0);
     }
   }, [externalIsOpen]);
+
+  useEffect(() => {
+    if (autoOpenOnLanding && externalIsOpen === undefined) {
+      try {
+        if (typeof window !== 'undefined') {
+          const seen = localStorage.getItem(TUTORIAL_KEY);
+          if (!seen) {
+            setIsOpen(true);
+          }
+        }
+      } catch {}
+    }
+  }, [autoOpenOnLanding, externalIsOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -81,9 +93,11 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
   }, [isOpen]);
 
   function handleDismiss() {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(TUTORIAL_KEY, 'true');
-    }
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(TUTORIAL_KEY, 'true');
+      }
+    } catch {}
     setIsOpen(false);
     if (previouslyFocusedRef.current) {
       previouslyFocusedRef.current.focus();
@@ -94,27 +108,27 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
   const steps = [
     {
       badge: 'Step 1 of 4',
-      icon: '📁',
-      title: 'Select Files or Type Text',
-      description: 'Choose files (PDF, ZIP, Videos, Images, Datasets) or select the Text tab to type/paste code snippets and notes to share.'
+      icon: '🎯',
+      title: 'Step 1 — Choose an Action',
+      description: 'Select "Send Files & Text" or "Receive Files."'
     },
     {
       badge: 'Step 2 of 4',
       icon: '🔢',
-      title: 'Generate Your 6-Digit Code',
-      description: 'Click "Generate Transfer Code" to allocate a secure, temporary 6-digit room code for your receiver.'
+      title: 'Step 2 — Generate a Code',
+      description: 'The sender selects files or enters text, then generates a temporary 6-digit code.'
     },
     {
       badge: 'Step 3 of 4',
       icon: '📲',
-      title: 'Enter Code on Receiver Device',
-      description: 'On the receiver device (phone, laptop, desktop, tablet), open PeerBridge and enter the 6-digit code to connect.'
+      title: 'Step 3 — Connect the Receiver',
+      description: 'The receiver opens the Receive page and enters the code in XXX-XXX format.'
     },
     {
       badge: 'Step 4 of 4',
       icon: '⚡',
-      title: 'Stream Files & 1-Click Copy',
-      description: 'Review and approve the connection on sender. Files stream directly browser-to-browser, and text snippets can be copied with 1-click!'
+      title: 'Step 4 — Approve and Transfer',
+      description: 'The sender clicks "Approve & Send" once. The receiver is automatically accepted and the transfer starts. Do not show a second receiver approval button.'
     }
   ];
 
@@ -123,7 +137,7 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
   const step = steps[currentStep];
 
   return (
-    <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="PeerBridge Usage Tutorial">
+    <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="How to Use PeerBridge Tutorial">
       <div className="tutorialModalCard" ref={modalRef}>
         <div className="tutorialHeader">
           <span className="tutorialStepBadge">{step.badge}</span>
@@ -142,14 +156,14 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
           <h3 className="tutorialTitle">{step.title}</h3>
           <p className="tutorialDesc">{step.description}</p>
 
-          <div className="tutorialStepDots">
+          <div className="tutorialStepDots" role="group" aria-label="Tutorial progress indicators">
             {steps.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
                 className={`stepDot ${idx === currentStep ? 'dotActive' : ''}`}
                 onClick={() => setCurrentStep(idx)}
-                aria-label={`Go to step ${idx + 1}`}
+                aria-label={`Go to step ${idx + 1} of 4`}
               />
             ))}
           </div>
@@ -191,7 +205,7 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
                 className="button buttonGlow buttonSmall"
                 onClick={handleDismiss}
               >
-                Got it! Let's Start 🚀
+                Start Sharing 🚀
               </button>
             )}
           </div>

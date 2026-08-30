@@ -101,6 +101,7 @@ export default function AppHeader() {
   // If on /send page -> show Receive files
   // If on /receive page -> show Send files
   // Default -> Send files
+  const isLandingPage = pathname === '/';
   const isSendPage = pathname === '/send';
   const actionHref = isSendPage ? '/receive' : '/send';
   const actionLabel = isSendPage ? 'Receive files ↓' : 'Send files →';
@@ -254,7 +255,11 @@ export default function AppHeader() {
       </header>
 
       {/* Auto First-Time Visitor & Manual Help Modal */}
-      <TutorialModal isOpen={tutorialOpen} onClose={() => setTutorialOpen(false)} />
+      <TutorialModal
+        isOpen={tutorialOpen}
+        onClose={() => setTutorialOpen(false)}
+        autoOpenOnLanding={isLandingPage}
+      />
     </>
   );
 }

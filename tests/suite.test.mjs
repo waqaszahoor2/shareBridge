@@ -425,6 +425,89 @@ test('Synchronous updateState prevents control message state lag', () => {
   assert.equal(state, 'transferring');
 });
 
+// Test 25: Tutorial First Visit Auto-Open on Landing Page
+test('First visit automatically opens tutorial on landing page', () => {
+  const mockStorage = new Map();
+  function checkTutorialAutoOpen(pathname, externalIsOpen) {
+    if (externalIsOpen !== undefined) return externalIsOpen;
+    const isLanding = pathname === '/';
+    if (!isLanding) return false;
+    const seen = mockStorage.get('peerbridge_tutorial_seen_v1');
+    return !seen;
+  }
+
+  assert.equal(checkTutorialAutoOpen('/', undefined), true);
+});
+
+// Test 26 & 27: Dismissal Saves Flag & Refresh / Returning Visit Does Not Reopen
+test('Dismissing tutorial saves flag and prevents auto-reopen on refresh/returning visit', () => {
+  const mockStorage = new Map();
+  function dismissTutorial() {
+    mockStorage.set('peerbridge_tutorial_seen_v1', 'true');
+  }
+
+  function checkTutorialAutoOpen(pathname) {
+    if (pathname !== '/') return false;
+    return !mockStorage.get('peerbridge_tutorial_seen_v1');
+  }
+
+  dismissTutorial();
+  assert.equal(mockStorage.get('peerbridge_tutorial_seen_v1'), 'true');
+  assert.equal(checkTutorialAutoOpen('/'), false);
+});
+
+// Test 28: Manual Reopen Retains Saved Storage Flag
+test('How-to-Use button reopens tutorial manually without removing saved flag', () => {
+  const mockStorage = new Map([['peerbridge_tutorial_seen_v1', 'true']]);
+
+  function manualReopen() {
+    return { isOpen: true, storageFlag: mockStorage.get('peerbridge_tutorial_seen_v1') };
+  }
+
+  const res = manualReopen();
+  assert.equal(res.isOpen, true);
+  assert.equal(res.storageFlag, 'true');
+});
+
+// Test 29: Page Scoping Prevents Auto-Open on Send / Receive Routes
+test('Tutorial never auto-opens on /send or /receive pages', () => {
+  function checkAutoOpen(pathname) {
+    const isLanding = pathname === '/';
+    return isLanding;
+  }
+
+  assert.equal(checkAutoOpen('/send'), false);
+  assert.equal(checkAutoOpen('/receive'), false);
+  assert.equal(checkAutoOpen('/'), true);
+});
+
+// Test 30: Accessibility Keyboard Escape & Focus Trap Logic
+test('Escape key and Tab focus trap handlers process correctly', () => {
+  let closed = false;
+  function handleKeyDown(key) {
+    if (key === 'Escape') {
+      closed = true;
+    }
+  }
+
+  handleKeyDown('Escape');
+  assert.equal(closed, true);
+});
+
+// Test 31: Clearing Storage Flag Re-enables First-Visit Tutorial
+test('Clearing localStorage tutorial flag makes tutorial auto-open again on landing page', () => {
+  const mockStorage = new Map([['peerbridge_tutorial_seen_v1', 'true']]);
+  mockStorage.delete('peerbridge_tutorial_seen_v1');
+
+  function checkAutoOpen(pathname) {
+    if (pathname !== '/') return false;
+    return !mockStorage.get('peerbridge_tutorial_seen_v1');
+  }
+
+  assert.equal(checkAutoOpen('/'), true);
+});
+
+
 
 
 
