@@ -52,7 +52,20 @@ export async function createTransferSession(files: FileMeta[] = []) {
 }
 
 export async function joinTransferSession(args: { code: string; receiverId?: string; resumeToken?: string }) {
-  return postJson<SessionResponse>('/api/session/join', args);
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await postJson<SessionResponse>('/api/session/join', args);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (lastError.message.toLowerCase().includes('not found') && attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+        continue;
+      }
+      throw lastError;
+    }
+  }
+  throw lastError || new Error('Transfer code not found');
 }
 
 export async function releaseTransferSession(args: { code: string; receiverId?: string; resumeToken?: string }) {
