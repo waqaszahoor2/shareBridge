@@ -1,42 +1,107 @@
-# PeerBridge
+# 🌉 PeerBridge — High-Performance P2P File & Text Transfer
 
-Professional responsive Next.js/Vercel starter for code-based browser-to-browser large-file transfer.
+> **Live Application**: [https://share-bridge-roan.vercel.app/](https://share-bridge-roan.vercel.app/)
 
-## Included
-- Next.js App Router + TypeScript.
-- Responsive landing, Send and Receive interfaces.
-- Drag/drop and multi-file selection (up to 20 files per room).
-- Automatic file name, extension, MIME label and size detection.
-- 6-digit temporary room code.
-- Direct WebRTC DataChannel file transfer.
-- Chunking, sender buffer backpressure and receiver acknowledgement window.
-- Progress, speed and ETA.
-- Receiver approval before file data.
-- Direct-to-folder streaming when the File System Access API is available.
-- Memory/download fallback on browsers without directory access.
-- Server-only Upstash Redis REST signaling state for Vercel production.
-- Security headers, hashed session tokens, same-origin validation and rate limiting.
-- Health endpoint at `/api/health`.
+PeerBridge is an enterprise-grade, responsive WebRTC peer-to-peer file and text sharing application built with Next.js 16 (App Router), TypeScript, and Upstash Redis signaling. It enables ultra-fast, direct browser-to-browser transfers without routing file content through central server storage.
 
-## Important architecture rule
-The large file never goes through a Next.js API route. Vercel handles only small session/signaling messages. File bytes travel browser-to-browser through WebRTC.
+---
 
-## Start locally
+## ✨ Key Features
+
+- **🚀 Direct Browser-to-Browser P2P**: File bytes stream directly between devices via WebRTC DataChannels with SCTP backpressure control and windowed acknowledgements.
+- **📱 Cross-Device & Cross-Network Reliability**: Full support for Mobile 4G/5G to Desktop Wi-Fi transfers backed by STUN/TURN fallback relay infrastructure (`openrelay.metered.ca`).
+- **📝 1-Click Text & Snippet Sharing**: Type or paste notes, code snippets, and links to share instantly with built-in mobile clipboard copy (`navigator.clipboard` + WebView fallback).
+- **🎨 Interactive Vertical Theme Switcher**: Glassmorphic popover dropdown supporting ☀️ **Light Mode**, 🌙 **Dark Mode**, and 💻 **System Auto Mode** with high-contrast legibility.
+- **❓ First-Time Visitor Onboarding Tutorial**: Guided interactive pop-up tutorial modal with step navigation, dot indicators, and a 1-click **Skip** option.
+- **📂 Progressive Disk Streaming**: Integrates the File System Access API (`showDirectoryPicker`) for direct-to-disk streaming of 500MB+ files without memory bloat.
+- **🔒 Zero-Trust Security Architecture**:
+  - Hashed owner/receiver session tokens (`SHA-256` + constant-time comparison).
+  - Rate limiting & Same-Origin subdomain protection.
+  - Strict Content-Security-Policy (CSP) headers.
+  - **Instant Data Purge**: Automatic wiping of expired session metadata from Upstash Redis immediately upon transfer completion.
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+| :--- | :--- |
+| **Framework** | Next.js 16 (App Router, Turbopack) |
+| **Language** | TypeScript (Strict Mode) |
+| **Protocol** | WebRTC DataChannel (SCTP, STUN/TURN) |
+| **Signaling Store** | Upstash Redis REST API (Serverless-Safe) |
+| **Styling** | Vanilla CSS Tokens & Glassmorphism |
+| **Testing** | Node.js Test Runner & TypeScript Compiler |
+
+---
+
+## 📐 Architecture & Data Flow
+
+```
+[ Sender Device ] <==== Direct P2P WebRTC DataChannel (Encrypted) ====> [ Receiver Device ]
+       │                                                                        │
+       └───── HTTP Poll / Signal ─────► [ Upstash Redis ] ◄───── Signal ────────┘
+                                     (Short-Lived Metadata Only)
+```
+
+> **Core Security Rule**: Selected files and text snippets **never touch central servers**. Vercel and Upstash Redis handle only 6-digit room codes and encrypted SDP/ICE signaling messages.
+
+---
+
+## ⚡ Getting Started
+
+### Prerequisites
+- Node.js `v18.x` or higher
+- npm `v9.x` or higher
+
+### Installation & Local Setup
 
 ```bash
+# 1. Clone repository
+git clone https://github.com/waqaszahoor2/shareBridge.git
+cd shareBridge
+
+# 2. Install dependencies
 npm install
-npm run validate
-npm run typecheck
+
+# 3. Copy environment configuration
+cp .env.example .env.local
+
+# 4. Run development server
 npm run dev
 ```
 
-Then open `http://localhost:3000`.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Deploy
-Read `DEPLOYMENT.md`. For production on Vercel, configure `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` so different Vercel instances share the same temporary transfer rooms.
+---
 
-## Browser note
-The layout works on mobile and desktop. For 500 MB+ receiving, Chrome/Edge desktop is recommended because a destination directory can be selected and chunks can be written progressively instead of accumulating the entire file in browser memory.
+## 🧪 Testing & Validation
 
-## No permanent file storage
-Redis contains only short-lived room/signaling metadata. It never stores selected file bytes.
+PeerBridge includes automated unit tests and type checks:
+
+```bash
+# Run unit tests
+npm run test
+
+# Run TypeScript type check
+npm run typecheck
+
+# Run Next.js production build check
+npm run build
+```
+
+---
+
+## 🌐 Production Deployment
+
+For production deployments on Vercel:
+
+1. Connect your repository to Vercel.
+2. Add an **Upstash Redis** integration from Vercel Marketplace (or set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`).
+3. Deploy to production!
+
+---
+
+## 📜 License
+
+Distributed under the MIT License. Built with ❤️ for fast, private, and secure file sharing.
