@@ -4,6 +4,7 @@ import type { FileMeta } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const MAX_FILES = 20;
 const MAX_SINGLE_FILE_SIZE = 50 * 1024 * 1024 * 1024; // 50GB
@@ -223,7 +224,7 @@ export async function POST(request: Request) {
         code,
         ownerHash,
         files,
-        status: 'waiting',
+        status: 'created',
         createdAt: now,
         expiresAt
       };

@@ -5,6 +5,7 @@ import { get, incrementWithTtl, pushSignal, readSignals } from '@/lib/server/sto
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const allowedTypes = new Set<SignalType>(['offer', 'answer', 'ice']);
 

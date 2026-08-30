@@ -5,6 +5,7 @@ import type { TransferState } from '@/lib/types';
 interface ConnectionStatusProps {
   state: TransferState;
   peerStatus: string;
+  sendMode?: 'files' | 'text';
 }
 
 const stateLabels: Record<TransferState, { label: string; tone: string }> = {
@@ -24,15 +25,16 @@ const stateLabels: Record<TransferState, { label: string; tone: string }> = {
   failed: { label: 'Interrupted', tone: 'danger' }
 };
 
-export default function ConnectionStatus({ state, peerStatus }: ConnectionStatusProps) {
+export default function ConnectionStatus({ state, peerStatus, sendMode }: ConnectionStatusProps) {
   const current = stateLabels[state] || { label: state, tone: 'neutral' };
+  const label = sendMode === 'text' && state === 'selecting' ? 'Preparing Items' : current.label;
 
   return (
     <div className="statusCard" aria-live="polite">
       <div className="statusHeader">
         <span className="statusDotLabel">Connection Status</span>
         <span className={`statusPill tone-${current.tone}`}>
-          <span className="dot" /> {current.label}
+          <span className="dot" /> {label}
         </span>
       </div>
       <p className="statusDetail">{peerStatus}</p>

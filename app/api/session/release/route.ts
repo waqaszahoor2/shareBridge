@@ -1,8 +1,9 @@
 import { enforceRateLimit, isSameOrigin, noStoreJson, normalizeCode, safeSecretEquals } from '@/lib/server/security';
-import { del, get } from '@/lib/server/store';
+import { del, get, put } from '@/lib/server/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function POST(request: Request) {
   try {
@@ -29,27 +30,41 @@ export async function POST(request: Request) {
     }
 
     const existingClaimRaw = await get(`pb:receiver:${code}`);
-    if (!existingClaimRaw) {
-      return noStoreJson({ success: true, released: false, message: 'No claim existed' });
-    }
+    const rawSession = await get(`pb:session:${code}`);
 
-    let tokenHash = existingClaimRaw;
-    let finalized = false;
-
-    try {
-      const parsed = JSON.parse(existingClaimRaw) as { tokenHash?: string; finalized?: boolean };
-      if (parsed.tokenHash) tokenHash = parsed.tokenHash;
-      if (parsed.finalized) finalized = Boolean(parsed.finalized);
-    } catch {}
-
-    if (safeSecretEquals(token, tokenHash) || body.purge === true) {
-      // Purge all unusable session keys from Upstash Redis
+    if (body.purge === true) {
       await del(`pb:session:${code}`);
       await del(`pb:receiver:${code}`);
       await del(`pb:sig:${code}:sender`);
       await del(`pb:sig:${code}:receiver`);
       await del(`pb:sig_seq:${code}`);
       return noStoreJson({ success: true, released: true, purged: true });
+    }
+
+    if (!existingClaimRaw) {
+      return noStoreJson({ success: true, released: false, message: 'No claim existed' });
+    }
+
+    let tokenHash = existingClaimRaw;
+    try {
+      const parsed = JSON.parse(existingClaimRaw) as { tokenHash?: string };
+      if (parsed.tokenHash) tokenHash = parsed.tokenHash;
+    } catch {}
+
+    if (safeSecretEquals(token, tokenHash)) {
+      await del(`pb:receiver:${code}`);
+      if (rawSession) {
+        try {
+          const sessionObj = JSON.parse(rawSession);
+          if (sessionObj.status === 'pending_approval') {
+            sessionObj.status = 'created';
+            delete sessionObj.receiverId;
+            delete sessionObj.receiverTokenHash;
+            await put(`pb:session:${code}`, JSON.stringify(sessionObj), 600);
+          }
+        } catch {}
+      }
+      return noStoreJson({ success: true, released: true });
     }
 
     return noStoreJson({ success: false, error: 'Unauthorized token' }, { status: 401 });

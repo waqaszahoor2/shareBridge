@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { safeFileName } from '@/lib/client/files';
-import { joinTransferSession, releaseTransferSession, sendSignal, startSignalPolling } from '@/lib/client/signaling';
+import { getSessionStatus, joinTransferSession, releaseTransferSession, sendSignal, startSessionStatusPolling, startSignalPolling } from '@/lib/client/signaling';
 import { createPeerConnection } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { triggerFileDownload, validateIncomingManifest } from '@/lib/webrtc/receiver';
+import { checkBrowserCapabilities } from '@/lib/client/capability';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -103,6 +104,7 @@ export default function ReceiveFlow() {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
   const stopPollRef = useRef<null | (() => void)>(null);
+  const stopStatusPollRef = useRef<null | (() => void)>(null);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const directoryRef = useRef<DirectoryHandleLike | null>(null);
   const activeRef = useRef<ActiveFile | null>(null);
@@ -114,16 +116,24 @@ export default function ReceiveFlow() {
   const stateRef = useRef<TransferState>('idle');
   const incomingRef = useRef<FileMeta[]>([]);
   const totalBytesRef = useRef(0);
+  const codeRef = useRef<string>('');
   const receiverIdRef = useRef<string>('');
   const resumeTokenRef = useRef<string>('');
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rtcInitiatedRef = useRef(false);
 
   const totalBytes = useMemo(() => incoming.reduce((sum, file) => sum + file.size, 0), [incoming]);
   const totalProgress = totalBytes ? Math.min(100, (totalReceived / totalBytes) * 100) : 0;
 
+  function updateState(nextState: TransferState) {
+    stateRef.current = nextState;
+    setState(nextState);
+  }
+
   useEffect(() => {
     stateRef.current = state;
-  }, [state]);
+    codeRef.current = code;
+  }, [state, code]);
 
   useEffect(() => {
     setSupportsDirectory(
@@ -131,8 +141,47 @@ export default function ReceiveFlow() {
         typeof (window as Window & { showDirectoryPicker?: unknown }).showDirectoryPicker === 'function'
     );
 
-    // Auto-restore session from sessionStorage on reload
-    if (typeof window !== 'undefined') {
+    const caps = checkBrowserCapabilities();
+    if (!caps.supported) {
+      setError(`Your browser lacks required APIs (${caps.missing.join(', ')}).`);
+      setErrorReasons([
+        'Opera Mini proxy mode or restricted in-app WebViews do not support WebRTC DataChannel',
+        'Please open Share Bridge in Google Chrome, Mozilla Firefox, Microsoft Edge, or Samsung Internet'
+      ]);
+    }
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        if (stateRef.current === 'waiting-for-sender-approval' && codeRef.current && resumeTokenRef.current) {
+          getSessionStatus({ code: codeRef.current, role: 'receiver', token: resumeTokenRef.current })
+            .then((st) => {
+              if (st.status === 'approved' || st.status === 'signaling' || st.status === 'connected') {
+                void initWebRTCConnection({ code: codeRef.current, token: resumeTokenRef.current });
+              }
+            })
+            .catch(() => undefined);
+        }
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const handleBeforeUnload = () => {
+      if (stateRef.current === 'waiting-for-sender-approval' || stateRef.current === 'joining') {
+        if (codeRef.current && resumeTokenRef.current) {
+          const payload = JSON.stringify({
+            code: codeRef.current,
+            receiverId: receiverIdRef.current,
+            resumeToken: resumeTokenRef.current
+          });
+          if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+            navigator.sendBeacon('/api/session/release', payload);
+          }
+        }
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    if (typeof window !== 'undefined' && caps.supported) {
       try {
         const stored = sessionStorage.getItem(STORAGE_KEY);
         if (stored) {
@@ -146,13 +195,20 @@ export default function ReceiveFlow() {
       } catch {}
     }
 
-    return () => cleanupConnection();
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      cleanupConnection();
+    };
   }, []);
 
   function cleanupConnection(releaseClaim = false) {
     cancelledRef.current = true;
     if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
     connectionTimeoutRef.current = null;
+
+    stopStatusPollRef.current?.();
+    stopStatusPollRef.current = null;
 
     if (releaseClaim && code && resumeTokenRef.current) {
       void releaseTransferSession({
@@ -219,39 +275,13 @@ export default function ReceiveFlow() {
     }
   }
 
-  async function connectWithCode(targetCode: string, existingReceiverId?: string, existingResumeToken?: string) {
-    if (targetCode.length !== 6) return;
-    setCode(targetCode);
-    setError('');
-    setErrorReasons([]);
-    setState('joining');
-    setPeerStatus('Connecting to room...');
-    cancelledRef.current = false;
+  async function initWebRTCConnection(session: { code: string; token: string }) {
+    if (rtcInitiatedRef.current) return;
+    rtcInitiatedRef.current = true;
+    setState('connecting');
+    setPeerStatus('Connecting WebRTC peer...');
 
     try {
-      const session = await joinTransferSession({
-        code: targetCode,
-        receiverId: existingReceiverId || receiverIdRef.current,
-        resumeToken: existingResumeToken || resumeTokenRef.current
-      });
-
-      receiverIdRef.current = session.receiverId || '';
-      resumeTokenRef.current = session.resumeToken || session.token || '';
-
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            code: targetCode,
-            receiverId: receiverIdRef.current,
-            resumeToken: resumeTokenRef.current
-          })
-        );
-      }
-
-      setState('connecting');
-      setPeerStatus('Connecting WebRTC peer...');
-
       const pc = await createPeerConnection();
       pcRef.current = pc;
 
@@ -278,7 +308,7 @@ export default function ReceiveFlow() {
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
           if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
-          setPeerStatus('Connected — waiting for sender approval');
+          setPeerStatus('Peer connected — receiving transfer stream');
         }
         if (pc.connectionState === 'disconnected') {
           setPeerStatus('Reconnecting peer network...');
@@ -316,6 +346,61 @@ export default function ReceiveFlow() {
             setError(pollError.message);
           }
         }
+      );
+    } catch (cause) {
+      cleanupConnection(false);
+      setState('failed');
+      setError(cause instanceof Error ? cause.message : 'Failed to establish peer connection');
+    }
+  }
+
+  async function connectWithCode(targetCode: string, existingReceiverId?: string, existingResumeToken?: string) {
+    if (targetCode.length !== 6) return;
+    cleanupConnection(false);
+    setCode(targetCode);
+    setError('');
+    setErrorReasons([]);
+    setState('joining');
+    setPeerStatus('Connecting to room...');
+    cancelledRef.current = false;
+    rtcInitiatedRef.current = false;
+
+    try {
+      const session = await joinTransferSession({
+        code: targetCode,
+        receiverId: existingReceiverId || receiverIdRef.current,
+        resumeToken: existingResumeToken || resumeTokenRef.current
+      });
+
+      receiverIdRef.current = session.receiverId || '';
+      resumeTokenRef.current = session.resumeToken || session.token || '';
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            code: targetCode,
+            receiverId: receiverIdRef.current,
+            resumeToken: resumeTokenRef.current
+          })
+        );
+      }
+
+      setState('waiting-for-sender-approval');
+      setPeerStatus('Connected — waiting for sender approval');
+
+      stopStatusPollRef.current = startSessionStatusPolling(
+        { code: targetCode, role: 'receiver', token: resumeTokenRef.current },
+        (status) => {
+          if ((status === 'approved' || status === 'signaling' || status === 'connected') && !rtcInitiatedRef.current) {
+            void initWebRTCConnection({ code: targetCode, token: resumeTokenRef.current });
+          } else if (status === 'declined' && stateRef.current !== 'declined') {
+            cleanupConnection(true);
+            setState('declined');
+            setPeerStatus('Sender declined transfer request');
+          }
+        },
+        800
       );
     } catch (cause) {
       cleanupConnection(false);
@@ -403,22 +488,22 @@ export default function ReceiveFlow() {
         lastUiRef.current = performance.now();
         totalReceivedRef.current = 0;
 
-        setState('preparing-storage');
+        updateState('preparing-storage');
         setPeerStatus('Preparing storage & streaming files...');
 
         // Send automatic manifest-ready response back to sender
         sendControl(channel, { kind: 'manifest-ready' });
-        setState('transferring');
+        updateState('transferring');
         setPeerStatus('Receiving files...');
         return;
       }
 
       if (message.kind === 'file-start' && message.file) {
-        if (stateRef.current !== 'transferring' && stateRef.current !== 'preparing-storage') {
-          throw new Error('Sender transmitted before approval.');
+        updateState('transferring');
+        let meta = incomingRef.current.find((file) => file.id === message.file?.id);
+        if (!meta) {
+          meta = message.file;
         }
-        const meta = incomingRef.current.find((file) => file.id === message.file?.id);
-        if (!meta) throw new Error('Received an unknown file identifier.');
         setActiveFileName(meta.name);
         const writerPromise = prepareWriter(meta);
         activeRef.current = { meta, writerPromise, chunks: [], received: 0, nextAck: ACK_STEP };
@@ -427,7 +512,10 @@ export default function ReceiveFlow() {
 
       if (message.kind === 'file-end' && message.fileId) {
         const context = activeRef.current;
-        if (!context || context.meta.id !== message.fileId) throw new Error('File transfer order was invalid.');
+        if (!context) return;
+        if (context.meta.id !== message.fileId) {
+          console.warn('[ReceiveFlow] File ID mismatch on end:', message.fileId, context.meta.id);
+        }
         activeRef.current = null;
         writeChainRef.current = writeChainRef.current.then(async () => {
           if (context.received !== context.meta.size) throw new Error('Received file size mismatch.');

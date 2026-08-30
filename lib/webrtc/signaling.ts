@@ -16,17 +16,35 @@ export type SessionResponse = {
   reasons?: string[];
 };
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+async function postJson<T>(url: string, body: unknown, timeoutMs = 15_000): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
     response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: controller.signal
     });
-  } catch {
-    throw new Error('Unable to connect to server. Please check your internet connection.');
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      const timeoutErr = new Error('Server request timed out (15s). Please check your connection and retry.');
+      (timeoutErr as Error & { reasons?: string[] }).reasons = [
+        'Network latency is high or server response was delayed',
+        'Click Retry to re-try the request'
+      ];
+      throw timeoutErr;
+    }
+    const netErr = new Error('Unable to connect to server. Please check your internet connection.');
+    (netErr as Error & { reasons?: string[] }).reasons = [
+      'Server unreachable or offline',
+      'Check network adapter or Wi-Fi connection'
+    ];
+    throw netErr;
+  } finally {
+    clearTimeout(timer);
   }
 
   let data: T & { error?: string; reasons?: string[] };
@@ -91,6 +109,61 @@ export async function pollSignals(args: { code: string; role: PeerRole; token: s
   });
 }
 
+export async function getSessionStatus(args: { code: string; role: PeerRole; token: string }) {
+  return postJson<{ success: boolean; code: string; status: string; receiverId?: string; files?: FileMeta[] }>(
+    '/api/session/status',
+    { action: 'get', ...args }
+  );
+}
+
+export async function approveSession(args: { code: string; token: string }) {
+  return postJson<{ success: boolean; status: string }>('/api/session/status', {
+    action: 'approve',
+    role: 'sender',
+    ...args
+  });
+}
+
+export async function declineSession(args: { code: string; role: PeerRole; token: string }) {
+  return postJson<{ success: boolean; status: string }>('/api/session/status', {
+    action: 'decline',
+    ...args
+  });
+}
+
+export async function updateSessionStatus(args: { code: string; role: PeerRole; token: string; status: string }) {
+  return postJson<{ success: boolean; status: string }>('/api/session/status', {
+    action: 'update',
+    ...args
+  });
+}
+
+export function startSessionStatusPolling(
+  args: { code: string; role: PeerRole; token: string },
+  onStatusChange: (status: string, data?: { receiverId?: string; files?: FileMeta[] }) => void,
+  intervalMs = 800
+) {
+  let active = true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const res = await getSessionStatus(args);
+      if (res.success && res.status) {
+        onStatusChange(res.status, { receiverId: res.receiverId, files: res.files });
+      }
+    } catch {}
+    if (active) timer = setTimeout(poll, intervalMs);
+  };
+
+  void poll();
+  return () => {
+    active = false;
+    if (timer) clearTimeout(timer);
+  };
+}
+
 export function startSignalPolling(
   args: { code: string; role: PeerRole; token: string },
   onMessage: (message: SignalMessage) => Promise<void> | void,
@@ -124,7 +197,6 @@ export function startSignalPolling(
     } catch (error) {
       consecutiveErrors += 1;
       delay = Math.min(delay * 1.5, 3000);
-      // Only surface error to UI if 5 consecutive poll attempts fail (mobile 4G network resiliency)
       if (consecutiveErrors >= 5) {
         onError(error instanceof Error ? error : new Error('Signaling poll failed.'));
       }
@@ -139,4 +211,5 @@ export function startSignalPolling(
     if (timer) clearTimeout(timer);
   };
 }
+
 

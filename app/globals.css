@@ -1310,4 +1310,35 @@ button { color: inherit; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
+/* RESPONSIVE BREAKPOINTS (320px, 375px, 768px, 1024px, 1440px) */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+@media (max-width: 480px) {
+  .shell {
+    width: calc(100% - 20px);
+  }
+  .tutorialModalCard {
+    padding: 20px 16px;
+    border-radius: 20px;
+  }
+  .tutorialFooter {
+    flex-direction: column-reverse;
+    width: 100%;
+  }
+  .footerLeft, .footerRight {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 360px) {
+  .shell {
+    width: calc(100% - 12px);
+  }
+}
+
+
 

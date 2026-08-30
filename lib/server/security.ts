@@ -62,18 +62,7 @@ export function generateTurnCredentials(usernamePrefix = 'peerbridge', ttlSecond
     return [{ urls: defaultTurn, username: defaultUser, credential: defaultPass }];
   }
 
-  // Fallback public TURN relay servers for mobile 4G/5G cross-network NAT traversal
-  return [
-    {
-      urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turns:openrelay.metered.ca:443?transport=tcp'
-      ],
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
-  ];
+  return [];
 }
 
 export function getClientIp(request: Request): string {

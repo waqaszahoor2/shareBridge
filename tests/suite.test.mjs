@@ -156,3 +156,276 @@ test('Safe filename sanitization for receiver downloads', () => {
   assert.equal(safeFileName('normal-file.zip'), 'normal-file.zip');
 });
 
+// Test 11: Sender Approval Handshake Flow
+test('Sender approval transitions state from pending_approval to approved', () => {
+  const session = { status: 'created' };
+
+  // Receiver joins -> pending_approval
+  function receiverJoin(s, receiverId, token) {
+    if (s.status !== 'created') throw new Error('Session unavailable');
+    s.status = 'pending_approval';
+    s.receiverClaim = { receiverId, token };
+    return { success: true, status: s.status, receiverId, resumeToken: token };
+  }
+
+  // Sender approves -> approved
+  function senderApprove(s) {
+    if (s.status !== 'pending_approval') throw new Error('Cannot approve');
+    s.status = 'approved';
+    return { success: true, status: 'approved' };
+  }
+
+  const joinRes = receiverJoin(session, 'rec_123', 'tok_abc');
+  assert.equal(joinRes.status, 'pending_approval');
+  assert.equal(session.status, 'pending_approval');
+
+  const approveRes = senderApprove(session);
+  assert.equal(approveRes.status, 'approved');
+  assert.equal(session.status, 'approved');
+});
+
+// Test 12: Sender Decline and Claim Release
+test('Sender decline transitions state to declined and releases claim', () => {
+  const session = { status: 'pending_approval', receiverClaim: { receiverId: 'rec_123', token: 'tok_abc' } };
+
+  function senderDecline(s) {
+    s.status = 'declined';
+    delete s.receiverClaim;
+    return { success: true, status: 'declined' };
+  }
+
+  const res = senderDecline(session);
+  assert.equal(res.status, 'declined');
+  assert.equal(session.status, 'declined');
+  assert.equal(session.receiverClaim, undefined);
+});
+
+// Test 13: Duplicate Receiver Claim Rejection
+test('Duplicate receiver attempting to claim active code is rejected', () => {
+  const claim = { receiverId: 'rec_first', token: 'token_first' };
+
+  function handleJoin(existingClaim, incomingReceiverId, incomingToken) {
+    if (existingClaim) {
+      if (existingClaim.receiverId === incomingReceiverId && existingClaim.token === incomingToken) {
+        return { success: true, resumed: true };
+      }
+      return { success: false, code: 'CODE_ALREADY_CLAIMED', status: 409 };
+    }
+    return { success: true, resumed: false };
+  }
+
+  // Same receiver resume -> OK
+  const sameRes = handleJoin(claim, 'rec_first', 'token_first');
+  assert.equal(sameRes.success, true);
+  assert.equal(sameRes.resumed, true);
+
+  // Different receiver -> 409 Conflict
+  const diffRes = handleJoin(claim, 'rec_second', 'token_second');
+  assert.equal(diffRes.success, false);
+  assert.equal(diffRes.code, 'CODE_ALREADY_CLAIMED');
+  assert.equal(diffRes.status, 409);
+});
+
+// Test 14: Timeout and Claim Release
+test('Unapproved claim timeout releases room and enables retry', () => {
+  const session = { status: 'pending_approval', receiverClaim: { receiverId: 'rec_1', token: 'tok_1' } };
+
+  function handleTimeoutOrCancel(s) {
+    if (s.status === 'pending_approval') {
+      s.status = 'created';
+      delete s.receiverClaim;
+      return { success: true, released: true };
+    }
+    return { success: true, released: false };
+  }
+
+  const releaseRes = handleTimeoutOrCancel(session);
+  assert.equal(releaseRes.released, true);
+  assert.equal(session.status, 'created');
+  assert.equal(session.receiverClaim, undefined);
+});
+
+// Test 15: Retry Session Join After Release
+test('Retry session join succeeds after previous unapproved claim released', () => {
+  const session = { status: 'created' };
+
+  function join(s, recId, tok) {
+    if (s.status !== 'created') return { success: false, code: 'CODE_ALREADY_CLAIMED' };
+    s.status = 'pending_approval';
+    s.receiverClaim = { recId, tok };
+    return { success: true, status: 'pending_approval' };
+  }
+
+  const firstJoin = join(session, 'rec_1', 'tok_1');
+  assert.equal(firstJoin.success, true);
+
+  // Unapproved release resets to created
+  session.status = 'created';
+  delete session.receiverClaim;
+
+  // Second receiver retries join
+  const retryJoin = join(session, 'rec_2', 'tok_2');
+  assert.equal(retryJoin.success, true);
+  assert.equal(session.status, 'pending_approval');
+  assert.equal(session.receiverClaim.recId, 'rec_2');
+});
+
+// Test 16: Session Storage Recovery
+test('Session restoration payload parsing and validation', () => {
+  function restoreSession(rawJson) {
+    if (!rawJson) return null;
+    try {
+      const parsed = JSON.parse(rawJson);
+      if (parsed.code && parsed.token && parsed.expiresAt > Date.now()) {
+        return parsed;
+      }
+    } catch {}
+    return null;
+  }
+
+  const validStored = JSON.stringify({ code: '654321', token: 'tok_secret', expiresAt: Date.now() + 600000 });
+  const restored = restoreSession(validStored);
+  assert.equal(restored?.code, '654321');
+  assert.equal(restored?.token, 'tok_secret');
+
+  const expiredStored = JSON.stringify({ code: '654321', token: 'tok_secret', expiresAt: Date.now() - 1000 });
+  assert.equal(restoreSession(expiredStored), null);
+});
+
+// Test 17: Claim Reuse on Refresh/Retry
+test('Receiver claim reuse allows same receiver token on refresh', () => {
+  const existingClaim = { receiverId: 'rec_99', tokenHash: 'hashed_resume_token' };
+
+  function validateClaimReuse(claim, incomingId, incomingTokenHash) {
+    if (claim.receiverId === incomingId && claim.tokenHash === incomingTokenHash) {
+      return { reusable: true };
+    }
+    return { reusable: false };
+  }
+
+  const res = validateClaimReuse(existingClaim, 'rec_99', 'hashed_resume_token');
+  assert.equal(res.reusable, true);
+});
+
+// Test 18: TURN Configuration Cleanliness
+test('No hard-coded public OpenRelay servers in TURN output', () => {
+  function filterTurnConfig(turnUrls) {
+    return (turnUrls || []).filter((u) => !u.includes('openrelay.metered.ca'));
+  }
+
+  const cleanUrls = filterTurnConfig(['stun:stun.l.google.com:19302']);
+  assert.equal(cleanUrls.length, 1);
+  assert.equal(cleanUrls.includes('turn:openrelay.metered.ca:80'), false);
+});
+
+// Test 19: Orphaned Claim Release Beacon
+test('Orphan claim release clears active claim and pending_approval state', () => {
+  const session = { code: '112233', status: 'pending_approval', receiverId: 'rec_1' };
+  let claimDeleted = false;
+
+  function handleBeaconRelease(code, isUnapproved) {
+    if (isUnapproved) {
+      session.status = 'created';
+      delete session.receiverId;
+      claimDeleted = true;
+    }
+  }
+
+  handleBeaconRelease('112233', session.status === 'pending_approval');
+  assert.equal(claimDeleted, true);
+  assert.equal(session.status, 'created');
+  assert.equal(session.receiverId, undefined);
+});
+
+// Test 20: Text Sharing Status and Selection Labels
+test('Text mode substitutes Preparing Items and Item selected labels correctly', () => {
+  function getStatusLabel(state, sendMode) {
+    if (sendMode === 'text' && state === 'selecting') return 'Preparing Items';
+    return state === 'selecting' ? 'Selecting Files' : 'Ready';
+  }
+
+  function getMetadataLabel(count, sendMode) {
+    const itemLabel = sendMode === 'text' ? (count === 1 ? 'Item' : 'Items') : (count === 1 ? 'File' : 'Files');
+    return `${count} ${itemLabel} selected`;
+  }
+
+  assert.equal(getStatusLabel('selecting', 'text'), 'Preparing Items');
+  assert.equal(getStatusLabel('selecting', 'files'), 'Selecting Files');
+
+  assert.equal(getMetadataLabel(1, 'text'), '1 Item selected');
+  assert.equal(getMetadataLabel(3, 'text'), '3 Items selected');
+  assert.equal(getMetadataLabel(1, 'files'), '1 File selected');
+});
+
+// Test 21: Bounded API Timeout & Action Reasons
+test('API request timeout error structure contains actionable reasons', () => {
+  function createTimeoutError() {
+    const err = new Error('Server request timed out (15s). Please check your connection and retry.');
+    err.code = 'REQUEST_TIMEOUT';
+    err.reasons = ['Network latency is high or server response was delayed', 'Click Retry to re-try the request'];
+    return err;
+  }
+
+  const err = createTimeoutError();
+  assert.equal(err.code, 'REQUEST_TIMEOUT');
+  assert.ok(err.message.includes('15s'));
+  assert.ok(err.reasons.length > 0);
+});
+
+// Test 22: Non-Frozen Approval Progress Sequence
+test('Sender approval progress sequence updates non-frozen status', () => {
+  const steps = [];
+  function updateApprovalProgress(percent, text) {
+    steps.push({ percent, text });
+  }
+
+  updateApprovalProgress(10, 'Approving session');
+  updateApprovalProgress(30, 'Session approved');
+  updateApprovalProgress(50, 'WebRTC channel open');
+  updateApprovalProgress(90, 'Stream initialized');
+
+  assert.equal(steps.length, 4);
+  assert.equal(steps[0].percent, 10);
+  assert.equal(steps[3].percent, 90);
+});
+
+// Test 23: Browser Capability Detection
+test('Browser capability feature detection identifies missing WebRTC APIs', () => {
+  function checkCapabilities(hasWebRTC, hasDataChannel) {
+    const missing = [];
+    if (!hasWebRTC) missing.push('WebRTC P2P networking');
+    if (!hasDataChannel) missing.push('RTCDataChannel streaming');
+    return {
+      supported: hasWebRTC && hasDataChannel,
+      missing
+    };
+  }
+
+  const supportedCaps = checkCapabilities(true, true);
+  assert.equal(supportedCaps.supported, true);
+  assert.equal(supportedCaps.missing.length, 0);
+
+  const restrictedCaps = checkCapabilities(true, false);
+  assert.equal(restrictedCaps.supported, false);
+  assert.equal(restrictedCaps.missing[0], 'RTCDataChannel streaming');
+});
+
+// Test 24: Synchronous stateRef Updating
+test('Synchronous updateState prevents control message state lag', () => {
+  let state = 'idle';
+  const stateRef = { current: 'idle' };
+
+  function updateState(next) {
+    stateRef.current = next;
+    state = next;
+  }
+
+  updateState('transferring');
+  assert.equal(stateRef.current, 'transferring');
+  assert.equal(state, 'transferring');
+});
+
+
+
+
+

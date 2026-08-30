@@ -28,3 +28,8 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.swp
+
+# Build artifacts & AI docs
+tsconfig.tsbuildinfo
+AGENTS.md
+CLAUDE.md

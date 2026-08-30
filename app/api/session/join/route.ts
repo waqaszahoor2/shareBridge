@@ -1,14 +1,16 @@
 import { createSecret, enforceRateLimit, hashSecret, isSameOrigin, noStoreJson, normalizeCode, PROVISIONAL_CLAIM_TTL_SECONDS, safeSecretEquals, SESSION_TTL_SECONDS } from '@/lib/server/security';
-import { get, putIfAbsent } from '@/lib/server/store';
+import { get, put, putIfAbsent } from '@/lib/server/store';
 import type { FileMeta } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type StoredReceiverClaim = {
   receiverId: string;
   tokenHash: string;
-  finalized: boolean;
+  claimedAt: number;
+  status: string;
 };
 
 export async function POST(request: Request) {
@@ -109,10 +111,29 @@ export async function POST(request: Request) {
       );
     }
 
-    let sessionObj: { files?: FileMeta[]; createdAt?: number; expiresAt?: string } = {};
+    let sessionObj: {
+      files?: FileMeta[];
+      createdAt?: number;
+      expiresAt?: string;
+      status?: string;
+      receiverId?: string;
+      receiverTokenHash?: string;
+    } = {};
     try {
       sessionObj = JSON.parse(rawSession);
     } catch {}
+
+    if (sessionObj.status === 'completed' || sessionObj.status === 'declined' || sessionObj.status === 'expired') {
+      return noStoreJson(
+        {
+          success: false,
+          error: `This transfer session is ${sessionObj.status}.`,
+          code: 'SESSION_CLOSED',
+          reasons: ['Please ask the sender to generate a new transfer code.']
+        },
+        { status: 410 }
+      );
+    }
 
     const receiverIdParam = typeof body.receiverId === 'string' ? body.receiverId.trim() : '';
     const resumeTokenParam =
@@ -131,8 +152,7 @@ export async function POST(request: Request) {
       try {
         existingClaim = JSON.parse(existingClaimRaw) as StoredReceiverClaim;
       } catch {
-        // Fallback for legacy format where value was just tokenHash string
-        existingClaim = { receiverId: '', tokenHash: existingClaimRaw, finalized: true };
+        existingClaim = { receiverId: '', tokenHash: existingClaimRaw, claimedAt: Date.now(), status: 'pending_approval' };
       }
 
       const isSameReceiverToken =
@@ -167,7 +187,8 @@ export async function POST(request: Request) {
       const claimData: StoredReceiverClaim = {
         receiverId,
         tokenHash: hashSecret(receiverToken),
-        finalized: false
+        claimedAt: Date.now(),
+        status: 'pending_approval'
       };
 
       const claimed = await putIfAbsent(
@@ -190,6 +211,11 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+
+      sessionObj.status = 'pending_approval';
+      sessionObj.receiverId = receiverId;
+      sessionObj.receiverTokenHash = claimData.tokenHash;
+      await put(`pb:session:${code}`, JSON.stringify(sessionObj), SESSION_TTL_SECONDS);
     }
 
     return noStoreJson({
@@ -199,6 +225,7 @@ export async function POST(request: Request) {
       receiverId,
       token: receiverToken,
       resumeToken: receiverToken,
+      status: sessionObj.status || 'pending_approval',
       expiresIn: SESSION_TTL_SECONDS,
       files: sessionObj.files || []
     });

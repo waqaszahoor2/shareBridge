@@ -6,6 +6,11 @@ export {
   releaseTransferSession,
   sendSignal,
   pollSignals,
-  startSignalPolling
+  startSignalPolling,
+  getSessionStatus,
+  approveSession,
+  declineSession,
+  updateSessionStatus,
+  startSessionStatusPolling
 } from '@/lib/webrtc/signaling';
 export type { SessionResponse } from '@/lib/webrtc/signaling';

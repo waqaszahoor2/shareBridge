@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const TUTORIAL_KEY = 'peerbridge_tutorial_seen';
 
@@ -13,11 +13,13 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (externalIsOpen !== undefined) {
       setIsOpen(externalIsOpen);
     } else {
-      // Check first-time visitor in localStorage
       if (typeof window !== 'undefined') {
         const seen = localStorage.getItem(TUTORIAL_KEY);
         if (!seen) {
@@ -27,11 +29,65 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
     }
   }, [externalIsOpen]);
 
+  useEffect(() => {
+    if (isOpen) {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
+      const timer = setTimeout(() => {
+        const firstFocusable = modalRef.current?.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        firstFocusable?.focus();
+      }, 50);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          handleDismiss();
+          return;
+        }
+
+        if (e.key === 'Tab' && modalRef.current) {
+          const focusables = modalRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (focusables.length === 0) return;
+          const first = focusables[0];
+          const last = focusables[focusables.length - 1];
+
+          if (e.shiftKey) {
+            if (document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            }
+          } else {
+            if (document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = '';
+      };
+    }
+  }, [isOpen]);
+
   function handleDismiss() {
     if (typeof window !== 'undefined') {
       localStorage.setItem(TUTORIAL_KEY, 'true');
     }
     setIsOpen(false);
+    if (previouslyFocusedRef.current) {
+      previouslyFocusedRef.current.focus();
+    }
     if (onClose) onClose();
   }
 
@@ -68,7 +124,7 @@ export default function TutorialModal({ isOpen: externalIsOpen, onClose }: Tutor
 
   return (
     <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="PeerBridge Usage Tutorial">
-      <div className="tutorialModalCard">
+      <div className="tutorialModalCard" ref={modalRef}>
         <div className="tutorialHeader">
           <span className="tutorialStepBadge">{step.badge}</span>
           <button
