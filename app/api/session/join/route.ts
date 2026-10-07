@@ -1,5 +1,5 @@
 import { createSecret, enforceRateLimit, hashSecret, isSameOrigin, noStoreJson, normalizeCode, PROVISIONAL_CLAIM_TTL_SECONDS, safeSecretEquals, SESSION_TTL_SECONDS } from '@/lib/server/security';
-import { get, put, putIfAbsent } from '@/lib/server/store';
+import { get, hasRedis, put, putIfAbsent } from '@/lib/server/store';
 import type { FileMeta } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -24,6 +24,22 @@ export async function POST(request: Request) {
           reasons: ['Cross-origin security block']
         },
         { status: 403 }
+      );
+    }
+
+    if (!hasRedis()) {
+      return noStoreJson(
+        {
+          success: false,
+          error: 'Shared session storage is not configured.',
+          code: 'MISSING_SESSION_STORE',
+          reasons: [
+            'Add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to your deployment',
+            'or connect a Vercel KV / Upstash Redis store before testing cross-browser transfer',
+            'Browser-to-browser transfer requires a shared server-side session store'
+          ]
+        },
+        { status: 503 }
       );
     }
 

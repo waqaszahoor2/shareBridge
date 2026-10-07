@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PeerRole, SignalMessage, SignalType } from '@/lib/types';
 import { enforceRateLimit, isSameOrigin, noStoreJson, normalizeCode, safeSecretEquals, SESSION_TTL_SECONDS } from '@/lib/server/security';
-import { get, incrementWithTtl, pushSignal, readSignals } from '@/lib/server/store';
+import { get, hasRedis, incrementWithTtl, pushSignal, readSignals } from '@/lib/server/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -50,6 +50,22 @@ async function authenticate(code: string, role: PeerRole, token: string) {
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
     return noStoreJson({ success: false, error: 'Invalid request origin.' }, { status: 403 });
+  }
+
+  if (!hasRedis()) {
+    return noStoreJson(
+      {
+        success: false,
+        error: 'Shared session storage is not configured.',
+        code: 'MISSING_SESSION_STORE',
+        reasons: [
+          'Add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to your deployment',
+          'or connect a Vercel KV / Upstash Redis store before testing cross-browser transfer',
+          'Browser-to-browser transfer requires a shared server-side session store'
+        ]
+      },
+      { status: 503 }
+    );
   }
 
   if (!(await enforceRateLimit(request, 'signal', 420))) {

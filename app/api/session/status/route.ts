@@ -1,5 +1,5 @@
 import { enforceRateLimit, isSameOrigin, noStoreJson, normalizeCode, safeSecretEquals, SESSION_TTL_SECONDS } from '@/lib/server/security';
-import { del, get, put } from '@/lib/server/store';
+import { del, get, hasRedis, put } from '@/lib/server/store';
 import type { PeerRole } from '@/lib/types';
 
 export const runtime = 'nodejs';
@@ -70,6 +70,22 @@ export async function POST(request: Request) {
   try {
     if (!isSameOrigin(request)) {
       return noStoreJson({ success: false, error: 'Invalid origin' }, { status: 403 });
+    }
+
+    if (!hasRedis()) {
+      return noStoreJson(
+        {
+          success: false,
+          error: 'Shared session storage is not configured.',
+          code: 'MISSING_SESSION_STORE',
+          reasons: [
+            'Add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to your deployment',
+            'or connect a Vercel KV / Upstash Redis store before testing cross-browser transfer',
+            'Browser-to-browser transfer requires a shared server-side session store'
+          ]
+        },
+        { status: 503 }
+      );
     }
 
     if (!(await enforceRateLimit(request, 'session-status', 120))) {
