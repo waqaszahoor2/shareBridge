@@ -290,10 +290,10 @@ export default function ReceiveFlow() {
         if (stateRef.current === 'connecting' || stateRef.current === 'joining') {
           cleanupConnection(true);
           setState('failed');
-          setError('WebRTC peer connection timed out after 30 seconds.');
+          setError('WebRTC peer connection timed out after 45 seconds.');
           setErrorReasons(['Network disconnect between devices', 'NAT firewall blocking peer connection']);
         }
-      }, 30_000);
+      }, 45_000);
 
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
@@ -303,7 +303,11 @@ export default function ReceiveFlow() {
           token: session.token,
           type: 'ice',
           payload: event.candidate.toJSON()
-        }).catch(() => undefined);
+        }).catch((cause) => {
+          if (cancelledRef.current) return;
+          setError(cause instanceof Error ? cause.message : 'Could not send an ICE candidate.');
+          setErrorReasons(['WebRTC network negotiation could not reach the signaling service.']);
+        });
       };
 
       pc.onconnectionstatechange = () => {
@@ -392,6 +396,8 @@ export default function ReceiveFlow() {
         { code: targetCode, role: 'receiver', token: resumeTokenRef.current },
         (status) => {
           if ((status === 'approved' || status === 'signaling' || status === 'connected') && !rtcInitiatedRef.current) {
+            stopStatusPollRef.current?.();
+            stopStatusPollRef.current = null;
             void initWebRTCConnection({ code: targetCode, token: resumeTokenRef.current });
           } else if (status === 'declined' && stateRef.current !== 'declined') {
             cleanupConnection(true);
@@ -731,6 +737,7 @@ export default function ReceiveFlow() {
       {state === 'transferring' && (
         <div className="receiverStepBox">
           <TransferProgress
+            direction="receiving"
             progressPercentage={totalProgress}
             currentBytes={totalReceived}
             totalBytes={totalBytes}

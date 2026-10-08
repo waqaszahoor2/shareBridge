@@ -360,8 +360,8 @@ test('Text mode substitutes Preparing Items and Item selected labels correctly',
 
 // Test 21: Bounded API Timeout & Action Reasons
 test('API request timeout error structure contains actionable reasons', () => {
-  function createTimeoutError() {
-    const err = new Error('Server request timed out (15s). Please check your connection and retry.');
+  function createTimeoutError(timeoutMs = 15_000) {
+    const err = new Error(`Server request timed out (${Math.ceil(timeoutMs / 1000)}s). Please check your connection and retry.`);
     err.code = 'REQUEST_TIMEOUT';
     err.reasons = ['Network latency is high or server response was delayed', 'Click Retry to re-try the request'];
     return err;
@@ -371,6 +371,7 @@ test('API request timeout error structure contains actionable reasons', () => {
   assert.equal(err.code, 'REQUEST_TIMEOUT');
   assert.ok(err.message.includes('15s'));
   assert.ok(err.reasons.length > 0);
+  assert.ok(createTimeoutError(30_000).message.includes('30s'));
 });
 
 // Test 22: Non-Frozen Approval Progress Sequence
@@ -507,7 +508,6 @@ test('Clearing localStorage tutorial flag makes tutorial auto-open again on land
 
   assert.equal(checkAutoOpen('/'), true);
 });
-
 
 
 

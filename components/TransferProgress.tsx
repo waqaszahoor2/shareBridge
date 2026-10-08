@@ -9,6 +9,7 @@ interface TransferProgressProps {
   speed: number;
   eta: number;
   currentFileName?: string;
+  direction: 'sending' | 'receiving';
 }
 
 export default function TransferProgress({
@@ -17,7 +18,8 @@ export default function TransferProgress({
   totalBytes,
   speed,
   eta,
-  currentFileName
+  currentFileName,
+  direction
 }: TransferProgressProps) {
   const percent = Math.min(100, Math.max(0, progressPercentage));
 
@@ -25,7 +27,11 @@ export default function TransferProgress({
     <div className="progressBox">
       <div className="progressHeader">
         <div className="progressTitle">
-          <strong>{currentFileName ? `Sending: ${currentFileName}` : 'Transferring files...'}</strong>
+          <strong>
+            {currentFileName
+              ? `${direction === 'sending' ? 'Sending' : 'Receiving'}: ${currentFileName}`
+              : `${direction === 'sending' ? 'Sending' : 'Receiving'} files...`}
+          </strong>
           <span>{percent.toFixed(1)}%</span>
         </div>
         <div
@@ -52,8 +58,10 @@ export default function TransferProgress({
           <strong className="statValue">{formatSpeed(speed)}</strong>
         </div>
         <div className="statItem">
-          <span className="statLabel">ETA</span>
-          <strong className="statValue">{formatTime(eta)}</strong>
+          <span className="statLabel">Time remaining</span>
+          <strong className="statValue">
+            {currentBytes < totalBytes && speed <= 0 ? 'Calculating…' : formatTime(eta)}
+          </strong>
         </div>
       </div>
     </div>

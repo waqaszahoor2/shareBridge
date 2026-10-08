@@ -168,16 +168,6 @@ export async function POST(request: Request) {
       session.status = 'approved';
       session.updatedAt = Date.now();
       await put(`pb:session:${code}`, JSON.stringify(session), SESSION_TTL_SECONDS);
-
-      const claimRaw = await get(`pb:receiver:${code}`);
-      if (claimRaw) {
-        try {
-          const claim = JSON.parse(claimRaw);
-          claim.status = 'approved';
-          await put(`pb:receiver:${code}`, JSON.stringify(claim), SESSION_TTL_SECONDS);
-        } catch {}
-      }
-
       return noStoreJson({ success: true, status: 'approved' });
     }
 

@@ -52,21 +52,64 @@ async function redisCommand<T = unknown>(args: Array<string | number>): Promise<
     throw new Error('Missing environment variable: UPSTASH_REDIS_REST_URL/KV_REST_API_URL or token');
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'PeerBridge/1.0'
-    },
-    body: JSON.stringify(args),
-    cache: 'no-store'
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'PeerBridge/1.0'
+      },
+      body: JSON.stringify(args),
+      cache: 'no-store',
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) throw new Error(`Redis HTTP request failed (${response.status})`);
   const data = (await response.json()) as { result?: T; error?: string };
   if (data.error) throw new Error(`Redis command error: ${data.error}`);
   return data.result as T;
+}
+
+async function redisPipeline(commands: Array<Array<string | number>>): Promise<unknown[]> {
+  const { url, token } = getRedisConfig();
+  if (!url || !token) {
+    throw new Error('Missing environment variable: UPSTASH_REDIS_REST_URL/KV_REST_API_URL or token');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  let response: Response;
+  try {
+    response = await fetch(`${url.replace(/\/+$/, '')}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'PeerBridge/1.0'
+      },
+      body: JSON.stringify(commands),
+      cache: 'no-store',
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) throw new Error(`Redis pipeline request failed (${response.status})`);
+  const results = (await response.json()) as Array<{ result?: unknown; error?: string }>;
+  if (!Array.isArray(results) || results.length !== commands.length) {
+    throw new Error('Redis pipeline returned an invalid response.');
+  }
+  const failed = results.find((item) => item.error);
+  if (failed?.error) throw new Error(`Redis pipeline command error: ${failed.error}`);
+  return results.map((item) => item.result);
 }
 
 async function safeRedisCommand<T = unknown>(args: Array<string | number>): Promise<{ ok: boolean; result?: T }> {
@@ -76,6 +119,17 @@ async function safeRedisCommand<T = unknown>(args: Array<string | number>): Prom
     return { ok: true, result };
   } catch (err) {
     console.warn('[Store] Redis operation failed, falling back to local store:', err instanceof Error ? err.message : err);
+    return { ok: false };
+  }
+}
+
+async function safeRedisPipeline(commands: Array<Array<string | number>>): Promise<{ ok: boolean; results?: unknown[] }> {
+  if (!hasRedis()) return { ok: false };
+  try {
+    const results = await redisPipeline(commands);
+    return { ok: true, results };
+  } catch (err) {
+    console.warn('[Store] Redis pipeline failed, falling back to local store:', err instanceof Error ? err.message : err);
     return { ok: false };
   }
 }
@@ -122,12 +176,12 @@ export async function del(key: string): Promise<void> {
 
 export async function pushSignal(key: string, value: string, ttlSeconds: number): Promise<void> {
   if (hasRedis()) {
-    const res = await safeRedisCommand(['RPUSH', key, value]);
-    if (res.ok) {
-      await safeRedisCommand(['LTRIM', key, -200, -1]);
-      await safeRedisCommand(['EXPIRE', key, ttlSeconds]);
-      return;
-    }
+    const res = await safeRedisPipeline([
+      ['RPUSH', key, value],
+      ['LTRIM', key, -200, -1],
+      ['EXPIRE', key, ttlSeconds]
+    ]);
+    if (res.ok) return;
   }
 
   cleanLocalKey(key);
@@ -161,5 +215,4 @@ export async function incrementWithTtl(key: string, ttlSeconds: number): Promise
   localKv.set(key, { value: String(current), expiresAt: now() + ttlSeconds * 1000 });
   return current;
 }
-
 

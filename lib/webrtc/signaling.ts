@@ -30,7 +30,9 @@ async function postJson<T>(url: string, body: unknown, timeoutMs = 15_000): Prom
     });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      const timeoutErr = new Error('Server request timed out (15s). Please check your connection and retry.');
+      const timeoutErr = new Error(
+        `Server request timed out (${Math.ceil(timeoutMs / 1000)}s). Please check your connection and retry.`
+      );
       (timeoutErr as Error & { reasons?: string[] }).reasons = [
         'Network latency is high or server response was delayed',
         'Click Retry to re-try the request'
@@ -92,14 +94,17 @@ export async function releaseTransferSession(args: { code: string; receiverId?: 
   } catch {}
 }
 
-export async function sendSignal(args: {
-  code: string;
-  role: PeerRole;
-  token: string;
-  type: SignalType;
-  payload: unknown;
-}) {
-  return postJson<{ ok: true; id: string; seq: number }>('/api/signal', { action: 'send', ...args });
+export async function sendSignal(
+  args: {
+    code: string;
+    role: PeerRole;
+    token: string;
+    type: SignalType;
+    payload: unknown;
+  },
+  timeoutMs = 15_000
+) {
+  return postJson<{ ok: true; id: string; seq: number }>('/api/signal', { action: 'send', ...args }, timeoutMs);
 }
 
 export async function pollSignals(args: { code: string; role: PeerRole; token: string; since?: number }) {
@@ -117,11 +122,15 @@ export async function getSessionStatus(args: { code: string; role: PeerRole; tok
 }
 
 export async function approveSession(args: { code: string; token: string }) {
-  return postJson<{ success: boolean; status: string }>('/api/session/status', {
-    action: 'approve',
-    role: 'sender',
-    ...args
-  });
+  return postJson<{ success: boolean; status: string }>(
+    '/api/session/status',
+    {
+      action: 'approve',
+      role: 'sender',
+      ...args
+    },
+    30_000
+  );
 }
 
 export async function declineSession(args: { code: string; role: PeerRole; token: string }) {
@@ -211,5 +220,3 @@ export function startSignalPolling(
     if (timer) clearTimeout(timer);
   };
 }
-
-

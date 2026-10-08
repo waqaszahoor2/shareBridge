@@ -290,6 +290,8 @@ export default function SendFlow() {
   async function approveReceiver() {
     if (manifestSentRef.current || isApproving) return;
 
+    stopStatusPollRef.current?.();
+    stopStatusPollRef.current = null;
     setIsApproving(true);
     manifestSentRef.current = true;
     setPrepProgress(10);
@@ -312,10 +314,10 @@ export default function SendFlow() {
         if (stateRef.current === 'connecting') {
           cleanupConnection();
           setState('failed');
-          setError('WebRTC peer connection timed out after 30 seconds.');
+          setError('WebRTC peer connection timed out after 45 seconds.');
           setErrorReasons(['Symmetric NAT or firewall blocking UDP/TCP peer connection', 'TRY TURN relay or check internet access']);
         }
-      }, 30_000);
+      }, 45_000);
 
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
@@ -325,7 +327,11 @@ export default function SendFlow() {
           token: sessionTokenRef.current,
           type: 'ice',
           payload: event.candidate.toJSON()
-        }).catch(() => undefined);
+        }).catch((cause) => {
+          if (cancelledRef.current) return;
+          setError(cause instanceof Error ? cause.message : 'Could not send an ICE candidate.');
+          setErrorReasons(['WebRTC network negotiation could not reach the signaling service.']);
+        });
       };
 
       pc.onconnectionstatechange = () => {
@@ -402,14 +408,22 @@ export default function SendFlow() {
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      await sendSignal({ code, role: 'sender', token: sessionTokenRef.current, type: 'offer', payload: offer });
+      await sendSignal(
+        { code, role: 'sender', token: sessionTokenRef.current, type: 'offer', payload: offer },
+        30_000
+      );
     } catch (cause) {
       setIsApproving(false);
       if (!cancelledRef.current) {
         cleanupConnection();
         setState('failed');
-        setError(cause instanceof Error ? cause.message : 'Receiver approval failed.');
-        setErrorReasons(['Session approval call failed', 'Data channel interrupted']);
+        const err = cause instanceof Error ? cause : new Error('Receiver approval failed.');
+        setError(err.message);
+        setErrorReasons(
+          'reasons' in err && Array.isArray((err as Error & { reasons?: string[] }).reasons)
+            ? (err as Error & { reasons: string[] }).reasons
+            : ['Could not approve the session or send the WebRTC offer.', 'Check the server connection and try again.']
+        );
       }
     }
   }
@@ -693,6 +707,7 @@ export default function SendFlow() {
       {state === 'transferring' && (
         <div className="senderStepBox">
           <TransferProgress
+            direction="sending"
             progressPercentage={totalProgress}
             currentBytes={sentBytes}
             totalBytes={totalBytes}
