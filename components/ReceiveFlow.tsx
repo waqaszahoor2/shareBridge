@@ -8,6 +8,7 @@ import { createPeerConnection } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { triggerFileDownload, validateIncomingManifest } from '@/lib/webrtc/receiver';
 import { checkBrowserCapabilities } from '@/lib/client/capability';
+import { clearSessionSnapshot, readSessionSnapshot, writeSessionSnapshot } from '@/lib/client/sessionStorage';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -183,7 +184,7 @@ export default function ReceiveFlow() {
 
     if (typeof window !== 'undefined' && caps.supported) {
       try {
-        const stored = sessionStorage.getItem(STORAGE_KEY);
+        const stored = readSessionSnapshot(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored) as { code: string; receiverId: string; resumeToken: string };
           if (parsed.code && parsed.resumeToken) {
@@ -217,7 +218,7 @@ export default function ReceiveFlow() {
         resumeToken: resumeTokenRef.current
       });
       if (typeof window !== 'undefined') {
-        sessionStorage.removeItem(STORAGE_KEY);
+        clearSessionSnapshot(STORAGE_KEY);
       }
     }
 
@@ -375,16 +376,14 @@ export default function ReceiveFlow() {
       receiverIdRef.current = session.receiverId || '';
       resumeTokenRef.current = session.resumeToken || session.token || '';
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            code: targetCode,
-            receiverId: receiverIdRef.current,
-            resumeToken: resumeTokenRef.current
-          })
-        );
-      }
+      writeSessionSnapshot(
+        STORAGE_KEY,
+        JSON.stringify({
+          code: targetCode,
+          receiverId: receiverIdRef.current,
+          resumeToken: resumeTokenRef.current
+        })
+      );
 
       setState('waiting-for-sender-approval');
       setPeerStatus('Connected — waiting for sender approval');
@@ -555,7 +554,7 @@ export default function ReceiveFlow() {
           setEta(0);
           setState('completed');
           setPeerStatus('Transfer completed');
-          if (typeof window !== 'undefined') sessionStorage.removeItem(STORAGE_KEY);
+          clearSessionSnapshot(STORAGE_KEY);
           // Purge room keys from Upstash Redis immediately on completion
           fetch('/api/session/release', {
             method: 'POST',
@@ -814,4 +813,3 @@ export default function ReceiveFlow() {
     </main>
   );
 }
-

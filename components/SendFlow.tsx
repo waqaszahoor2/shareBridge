@@ -8,6 +8,7 @@ import { createPeerConnection } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { sendSelectedFiles } from '@/lib/webrtc/sender';
 import { waitForReceiverReady } from '@/lib/webrtc/chunkTransfer';
+import { clearSessionSnapshot, readSessionSnapshot, writeSessionSnapshot } from '@/lib/client/sessionStorage';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -84,7 +85,7 @@ export default function SendFlow() {
         setPeerStatus('Transfer code expired');
         setError('Transfer code expired before receiver connected.');
         setErrorReasons(['Code TTL reached (10 minutes)', 'Please generate a new code']);
-        if (typeof window !== 'undefined') sessionStorage.removeItem(SENDER_STORAGE_KEY);
+        clearSessionSnapshot(SENDER_STORAGE_KEY);
       }
     };
     update();
@@ -108,7 +109,7 @@ export default function SendFlow() {
     // Auto-restore session state on page refresh
     if (typeof window !== 'undefined') {
       try {
-        const stored = sessionStorage.getItem(SENDER_STORAGE_KEY);
+        const stored = readSessionSnapshot(SENDER_STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored) as { code: string; token: string; files: FileMeta[]; expiresAt: number };
           if (parsed.code && parsed.token && parsed.expiresAt > Date.now()) {
@@ -146,7 +147,7 @@ export default function SendFlow() {
           cleanupConnection();
           setState('declined');
           setPeerStatus('Receiver declined transfer');
-          if (typeof window !== 'undefined') sessionStorage.removeItem(SENDER_STORAGE_KEY);
+          clearSessionSnapshot(SENDER_STORAGE_KEY);
         }
       },
       800
@@ -248,17 +249,15 @@ export default function SendFlow() {
       setState('waiting-for-receiver');
       setPeerStatus('Waiting for receiver');
 
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(
-          SENDER_STORAGE_KEY,
-          JSON.stringify({
-            code: session.code,
-            token: session.token,
-            files: fileMetas,
-            expiresAt: expiry
-          })
-        );
-      }
+      writeSessionSnapshot(
+        SENDER_STORAGE_KEY,
+        JSON.stringify({
+          code: session.code,
+          token: session.token,
+          files: fileMetas,
+          expiresAt: expiry
+        })
+      );
 
       stopStatusPollRef.current = startSessionStatusPolling(
         { code: session.code, role: 'sender', token: session.token },
@@ -489,7 +488,7 @@ export default function SendFlow() {
   function resetToStart() {
     cleanupConnection();
     if (typeof window !== 'undefined') {
-      sessionStorage.removeItem(SENDER_STORAGE_KEY);
+      clearSessionSnapshot(SENDER_STORAGE_KEY);
     }
     setSelected([]);
     setState('idle');
@@ -757,4 +756,3 @@ export default function SendFlow() {
     </main>
   );
 }
-
