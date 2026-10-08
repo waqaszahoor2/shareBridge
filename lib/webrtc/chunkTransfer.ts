@@ -4,9 +4,9 @@ export const ACK_WINDOW = 2 * 1024 * 1024; // 2MB ACK window (safe for mobile so
 export const ACK_STEP = 256 * 1024; // 256KB ACK step
 
 export function calculateChunkSize(maxMessageSize?: number) {
-  // Universal 16KB max chunk size for 100% cross-browser (Chrome, Brave, Firefox, Safari) and mobile compatibility
+  // Keep a conservative margin under SCTP's negotiated message limit while reducing per-chunk overhead.
   const max = maxMessageSize || 16_384;
-  return Math.min(16 * 1024, Math.max(8 * 1024, Math.floor(max / 2)));
+  return Math.min(64 * 1024, Math.max(8 * 1024, Math.floor(max / 2)));
 }
 
 export async function waitForReceiverReady(
@@ -54,4 +54,3 @@ export async function waitForFileSaved(
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
 }
-

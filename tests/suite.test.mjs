@@ -46,11 +46,12 @@ test('Duplicate file IDs rejection', () => {
 test('Chunk size calculation respects SCTP max message size', () => {
   function calculateChunkSize(maxMessageSize) {
     const max = maxMessageSize || 16_384;
-    return Math.min(16 * 1024, Math.max(8 * 1024, Math.floor(max / 2)));
+    return Math.min(64 * 1024, Math.max(8 * 1024, Math.floor(max / 2)));
   }
 
-  assert.equal(calculateChunkSize(65536), 16384);
-  assert.equal(calculateChunkSize(262144), 16384);
+  assert.equal(calculateChunkSize(65536), 32768);
+  assert.equal(calculateChunkSize(131072), 65536);
+  assert.equal(calculateChunkSize(262144), 65536);
   assert.equal(calculateChunkSize(16384), 8192);
 });
 
@@ -506,8 +507,6 @@ test('Clearing localStorage tutorial flag makes tutorial auto-open again on land
 
   assert.equal(checkAutoOpen('/'), true);
 });
-
-
 
 
 
