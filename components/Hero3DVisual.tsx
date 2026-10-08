@@ -14,6 +14,7 @@ export default function Hero3DVisual() {
     if (!ctx) return;
 
     let animId: number;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let width = (canvas.width = canvas.parentElement?.clientWidth || 420);
     let height = (canvas.height = canvas.parentElement?.clientHeight || 420);
 
@@ -57,8 +58,10 @@ export default function Hero3DVisual() {
       const cy = height / 2;
       const focalLength = 320;
 
-      angleX += 0.006;
-      angleY += 0.008;
+      if (!reducedMotion) {
+        angleX += 0.006;
+        angleY += 0.008;
+      }
 
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
@@ -128,7 +131,7 @@ export default function Hero3DVisual() {
         ctx.shadowBlur = 0;
       }
 
-      animId = requestAnimationFrame(render);
+      if (!reducedMotion) animId = requestAnimationFrame(render);
     };
 
     render();
@@ -167,7 +170,27 @@ export default function Hero3DVisual() {
     >
       <canvas ref={canvasRef} className="hero3DCanvas" />
 
-      {/* 3D Floating Glass Orbit Cards */}
+      <div className="heroDevice3D heroDeviceSender">
+        <div className="heroDeviceScreen">
+          <span className="heroDeviceNotch" />
+          <span className="heroDeviceLogo">PB</span>
+          <strong>Ready to share</strong>
+          <div className="heroDeviceFile"><span>APK</span><i /></div>
+          <div className="heroDeviceFile"><span>PDF</span><i /></div>
+          <span className="heroDeviceAction">Create secure code</span>
+        </div>
+      </div>
+      <div className="heroDevice3D heroDeviceReceiver">
+        <div className="heroDeviceScreen">
+          <span className="heroDeviceNotch" />
+          <span className="heroDeviceLogo">PB</span>
+          <strong>Receiving file</strong>
+          <div className="heroDeviceProgress"><i /></div>
+          <small>62% · 8 sec left</small>
+          <span className="heroDeviceDownload">↓</span>
+        </div>
+      </div>
+
       <div className="glassCard3D gc1">
         <div className="gcIcon">📁</div>
         <div className="gcText">

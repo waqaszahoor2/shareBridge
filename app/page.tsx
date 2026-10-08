@@ -7,17 +7,17 @@ export default function HomePage() {
       <section className="hero shell">
         <div className="heroCopy">
           <div className="eyebrow"><span className="dot" /> P2P WebRTC Direct Engine</div>
-          <h1>Send files &amp; text <span>directly. securely.</span></h1>
-          <p className="heroLead">Move files, code snippets and text notes directly between devices using a temporary 6-digit code. Zero server file uploads.</p>
+          <h1>Share files &amp; text <span>directly between devices.</span></h1>
+          <p className="heroLead">Fast, private peer-to-peer sharing for your files and messages. Connect with a temporary code; your file contents never upload to our servers.</p>
           <div className="heroActions">
-            <Link className="button buttonGlow" href="/send">Send files &amp; text <span>→</span></Link>
-            <Link className="button buttonGhost" href="/receive">Receive files <span>↓</span></Link>
+            <Link className="button buttonGlow" href="/send">Start sharing <span>→</span></Link>
+            <Link className="button buttonGhost" href="#how"><span aria-hidden="true">▶</span> How it works</Link>
           </div>
           <div className="trustRow">
-            <span>✓ No permanent uploads</span>
-            <span>✓ WebRTC DTLS encrypted</span>
-            <span>✓ 1-Click text copy</span>
-            <span>✓ 500 MB+ stream ready</span>
+            <span>▣ Files &amp; Text</span>
+            <span>◉ Peer-to-Peer</span>
+            <span>↗ Fast &amp; Reliable</span>
+            <span>✓ Private transfer</span>
           </div>
         </div>
         <Hero3DVisual />
@@ -80,7 +80,7 @@ export default function HomePage() {
         <div className="featureItem3D">
           <small>Large file engine</small>
           <strong>Chunked + Backpressure</strong>
-          <span>Streams data in 16KB WebRTC chunks directly to storage, avoiding RAM crashes.</span>
+          <span>Adaptive 64KB WebRTC chunks stream directly between devices with backpressure control.</span>
         </div>
         <div className="featureItem3D">
           <small>Text &amp; Snippet Engine</small>
@@ -91,6 +91,11 @@ export default function HomePage() {
           <small>Cross-Platform &amp; Browser</small>
           <strong>Chrome · Brave · Safari · Mobile</strong>
           <span>Multi-STUN/TURN fallback supports mobile-to-desktop and cross-browser transfers.</span>
+        </div>
+        <div className="featureItem3D">
+          <small>On-device tools</small>
+          <strong>History + Appearance</strong>
+          <span>Review completed transfers locally and choose light, dark, or system theme.</span>
         </div>
       </section>
 

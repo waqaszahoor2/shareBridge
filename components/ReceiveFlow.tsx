@@ -9,6 +9,7 @@ import { sendControl } from '@/lib/webrtc/dataChannel';
 import { triggerFileDownload, validateIncomingManifest } from '@/lib/webrtc/receiver';
 import { checkBrowserCapabilities } from '@/lib/client/capability';
 import { clearSessionSnapshot, readSessionSnapshot, writeSessionSnapshot } from '@/lib/client/sessionStorage';
+import { recordTransferHistory } from '@/lib/client/history';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -18,6 +19,7 @@ import FilePreview from './FilePreview';
 import ReceiverJoin from './ReceiverJoin';
 import ToastNotification, { ToastMessage } from './ToastNotification';
 import TransferProgress from './TransferProgress';
+import WorkflowSidebar from './WorkflowSidebar';
 
 type WriterLike = {
   write(data: ArrayBuffer): Promise<void>;
@@ -556,6 +558,11 @@ export default function ReceiveFlow() {
 
       if (message.kind === 'all-complete') {
         writeChainRef.current = writeChainRef.current.then(async () => {
+          recordTransferHistory(
+            'received',
+            incomingRef.current,
+            performance.now() - startedAtRef.current
+          );
           setTotalReceived(totalBytesRef.current);
           setEta(0);
           setState('completed');
@@ -663,6 +670,8 @@ export default function ReceiveFlow() {
     <main className="shell receiveLayout">
       <ToastNotification toast={toast} onClose={() => setToast(null)} />
 
+      <WorkflowSidebar active="receive" />
+      <div className="workflowContent">
       <div className="flowHeader">
         <Link href="/" className="backLink">
           ← Back
@@ -817,6 +826,7 @@ export default function ReceiveFlow() {
           </div>
         </div>
       )}
+      </div>
     </main>
   );
 }

@@ -9,6 +9,7 @@ import { sendControl } from '@/lib/webrtc/dataChannel';
 import { sendSelectedFiles } from '@/lib/webrtc/sender';
 import { waitForReceiverReady } from '@/lib/webrtc/chunkTransfer';
 import { clearSessionSnapshot, readSessionSnapshot, writeSessionSnapshot } from '@/lib/client/sessionStorage';
+import { recordTransferHistory } from '@/lib/client/history';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -21,6 +22,7 @@ import FileUploader from './FileUploader';
 import ToastNotification, { ToastMessage } from './ToastNotification';
 import TransferCode from './TransferCode';
 import TransferProgress from './TransferProgress';
+import WorkflowSidebar from './WorkflowSidebar';
 
 type Selected = { file: File; meta: FileMeta };
 
@@ -60,6 +62,7 @@ export default function SendFlow() {
   const receiverReadyRef = useRef(false);
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const apiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transferStartedAtRef = useRef(0);
 
   const totalBytes = useMemo(() => selected.reduce((sum, item) => sum + item.file.size, 0), [selected]);
   const totalProgress = totalBytes ? Math.min(100, (sentBytes / totalBytes) * 100) : 0;
@@ -458,6 +461,7 @@ export default function SendFlow() {
     stateRef.current = 'transferring';
     setState('transferring');
     setSentBytes(0);
+    transferStartedAtRef.current = Date.now();
 
     try {
       await sendSelectedFiles({
@@ -478,6 +482,11 @@ export default function SendFlow() {
         }
       });
 
+      recordTransferHistory(
+        'sent',
+        selected.map((item) => item.meta),
+        Date.now() - transferStartedAtRef.current
+      );
       setState('completed');
       setPeerStatus('All files transferred successfully');
       // Purge room keys from Upstash Redis immediately on completion
@@ -533,6 +542,8 @@ export default function SendFlow() {
     <main className="shell sendLayout">
       <ToastNotification toast={toast} onClose={() => setToast(null)} />
 
+      <WorkflowSidebar active="send" />
+      <div className="workflowContent">
       <div className="flowHeader">
         <Link href="/" className="backLink">
           ← Back
@@ -768,6 +779,7 @@ export default function SendFlow() {
           </div>
         </div>
       )}
+      </div>
     </main>
   );
 }

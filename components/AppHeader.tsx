@@ -5,6 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import TutorialModal from '@/components/TutorialModal';
+import {
+  applyThemeMode,
+  readThemeMode,
+  saveThemeMode,
+  THEME_CHANGE_EVENT,
+  type ThemeMode
+} from '@/lib/client/theme';
 
 export function BrandMark() {
   return (
@@ -16,8 +23,6 @@ export function BrandMark() {
     </span>
   );
 }
-
-type ThemeMode = 'system' | 'light' | 'dark';
 
 export default function AppHeader() {
   const pathname = usePathname();
@@ -53,36 +58,30 @@ export default function AppHeader() {
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem('peerbridge_theme') as ThemeMode | null;
-    if (saved && ['system', 'light', 'dark'].includes(saved)) {
-      setTheme(saved);
-      applyTheme(saved);
-    } else {
-      applyTheme('system');
-    }
+    const current = readThemeMode();
+    setTheme(current);
+    applyThemeMode(current);
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
-      const current = (localStorage.getItem('peerbridge_theme') as ThemeMode | null) || 'system';
-      if (current === 'system') applyTheme('system');
+      const current = readThemeMode();
+      if (current === 'system') applyThemeMode('system');
+    };
+    const handleThemeChange = (event: Event) => {
+      const mode = (event as CustomEvent<ThemeMode>).detail;
+      if (mode === 'system' || mode === 'light' || mode === 'dark') setTheme(mode);
     };
     mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    };
   }, []);
-
-  function applyTheme(mode: ThemeMode) {
-    const root = document.documentElement;
-    if (mode === 'system') {
-      root.removeAttribute('data-theme');
-    } else {
-      root.setAttribute('data-theme', mode);
-    }
-  }
 
   function handleThemeChange(mode: ThemeMode) {
     setTheme(mode);
-    localStorage.setItem('peerbridge_theme', mode);
-    applyTheme(mode);
+    saveThemeMode(mode);
     setDropdownOpen(false);
   }
 
@@ -114,7 +113,7 @@ export default function AppHeader() {
 
   return (
     <>
-      <header className="siteHeader">
+      <header className={`siteHeader ${isLandingPage ? 'siteHeaderLanding' : ''}`}>
         <div className="shell headerInner">
           <Link className="brand" href="/" aria-label="PeerBridge home" onClick={closeMenu}>
             <BrandMark />
@@ -125,6 +124,8 @@ export default function AppHeader() {
             <a href="/#how">How it works</a>
             <a href="/#features">Features</a>
             <a href="/#security">Security</a>
+            <Link href="/history">History</Link>
+            <Link href="/settings">Settings</Link>
             <button type="button" className="navHelpBtn" onClick={openTutorial}>
               ❓ How to Use
             </button>
@@ -207,6 +208,8 @@ export default function AppHeader() {
               <a href="/#how" onClick={closeMenu}>How it works</a>
               <a href="/#features" onClick={closeMenu}>Features</a>
               <a href="/#security" onClick={closeMenu}>Security</a>
+              <Link href="/history" onClick={closeMenu}>Transfer history</Link>
+              <Link href="/settings" onClick={closeMenu}>Settings</Link>
               <button type="button" className="mobileHelpBtn" onClick={openTutorial}>
                 ❓ How to Use Tutorial
               </button>
@@ -254,6 +257,24 @@ export default function AppHeader() {
         )}
       </header>
 
+      <nav className="mobileBottomNav" aria-label="Quick navigation">
+        <Link className={isLandingPage ? 'bottomNavActive' : ''} href="/" aria-current={isLandingPage ? 'page' : undefined}>
+          <span aria-hidden="true">⌂</span><small>Home</small>
+        </Link>
+        <Link className={isSendPage ? 'bottomNavActive' : ''} href="/send" aria-current={isSendPage ? 'page' : undefined}>
+          <span aria-hidden="true">↑</span><small>Send</small>
+        </Link>
+        <Link className={pathname === '/receive' ? 'bottomNavActive' : ''} href="/receive" aria-current={pathname === '/receive' ? 'page' : undefined}>
+          <span aria-hidden="true">↓</span><small>Receive</small>
+        </Link>
+        <Link className={pathname === '/history' ? 'bottomNavActive' : ''} href="/history" aria-current={pathname === '/history' ? 'page' : undefined}>
+          <span aria-hidden="true">◷</span><small>History</small>
+        </Link>
+        <Link className={pathname === '/settings' ? 'bottomNavActive' : ''} href="/settings" aria-current={pathname === '/settings' ? 'page' : undefined}>
+          <span aria-hidden="true">⚙</span><small>Settings</small>
+        </Link>
+      </nav>
+
       {/* Auto First-Time Visitor & Manual Help Modal */}
       <TutorialModal
         isOpen={tutorialOpen}
@@ -263,4 +284,3 @@ export default function AppHeader() {
     </>
   );
 }
-
