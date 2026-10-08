@@ -26,12 +26,16 @@ function getRedisConfig(): { url?: string; token?: string } {
     process.env.UPSTASH_REDIS_REST_URL ||
     process.env.KV_REST_API_URL ||
     process.env.VERCEL_KV_API_URL ||
+    process.env.KV_URL ||
+    process.env.REDIS_URL ||
     process.env.REST_KV_URL;
 
   const token =
     process.env.UPSTASH_REDIS_REST_TOKEN ||
     process.env.KV_REST_API_TOKEN ||
     process.env.VERCEL_KV_API_TOKEN ||
+    process.env.KV_TOKEN ||
+    process.env.REDIS_TOKEN ||
     process.env.REST_KV_TOKEN;
 
   return { url, token };
@@ -40,12 +44,6 @@ function getRedisConfig(): { url?: string; token?: string } {
 export function hasRedis(): boolean {
   const { url, token } = getRedisConfig();
   return Boolean(url && token);
-}
-
-function checkProductionRedis() {
-  if (process.env.NODE_ENV === 'production' && !hasRedis()) {
-    throw new Error('Redis configuration missing in production environment. Shared Redis storage is required.');
-  }
 }
 
 async function redisCommand<T = unknown>(args: Array<string | number>): Promise<T> {
@@ -71,11 +69,23 @@ async function redisCommand<T = unknown>(args: Array<string | number>): Promise<
   return data.result as T;
 }
 
+async function safeRedisCommand<T = unknown>(args: Array<string | number>): Promise<{ ok: boolean; result?: T }> {
+  if (!hasRedis()) return { ok: false };
+  try {
+    const result = await redisCommand<T>(args);
+    return { ok: true, result };
+  } catch (err) {
+    console.warn('[Store] Redis operation failed, falling back to local store:', err instanceof Error ? err.message : err);
+    return { ok: false };
+  }
+}
+
 export async function putIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean> {
-  checkProductionRedis();
   if (hasRedis()) {
-    const result = await redisCommand<string | null>(['SET', key, value, 'EX', ttlSeconds, 'NX']);
-    return result === 'OK';
+    const res = await safeRedisCommand<string | null>(['SET', key, value, 'EX', ttlSeconds, 'NX']);
+    if (res.ok) {
+      return res.result === 'OK';
+    }
   }
 
   cleanLocalKey(key);
@@ -85,40 +95,39 @@ export async function putIfAbsent(key: string, value: string, ttlSeconds: number
 }
 
 export async function put(key: string, value: string, ttlSeconds: number): Promise<void> {
-  checkProductionRedis();
   if (hasRedis()) {
-    await redisCommand(['SET', key, value, 'EX', ttlSeconds]);
-    return;
+    const res = await safeRedisCommand(['SET', key, value, 'EX', ttlSeconds]);
+    if (res.ok) return;
   }
   localKv.set(key, { value, expiresAt: now() + ttlSeconds * 1000 });
 }
 
 export async function get(key: string): Promise<string | null> {
-  checkProductionRedis();
   if (hasRedis()) {
-    return await redisCommand<string | null>(['GET', key]);
+    const res = await safeRedisCommand<string | null>(['GET', key]);
+    if (res.ok) return res.result ?? null;
   }
   cleanLocalKey(key);
   return localKv.get(key)?.value ?? null;
 }
 
 export async function del(key: string): Promise<void> {
-  checkProductionRedis();
   if (hasRedis()) {
-    await redisCommand(['DEL', key]);
-    return;
+    const res = await safeRedisCommand(['DEL', key]);
+    if (res.ok) return;
   }
   localKv.delete(key);
   localLists.delete(key);
 }
 
 export async function pushSignal(key: string, value: string, ttlSeconds: number): Promise<void> {
-  checkProductionRedis();
   if (hasRedis()) {
-    await redisCommand(['RPUSH', key, value]);
-    await redisCommand(['LTRIM', key, -200, -1]);
-    await redisCommand(['EXPIRE', key, ttlSeconds]);
-    return;
+    const res = await safeRedisCommand(['RPUSH', key, value]);
+    if (res.ok) {
+      await safeRedisCommand(['LTRIM', key, -200, -1]);
+      await safeRedisCommand(['EXPIRE', key, ttlSeconds]);
+      return;
+    }
   }
 
   cleanLocalKey(key);
@@ -130,20 +139,21 @@ export async function pushSignal(key: string, value: string, ttlSeconds: number)
 }
 
 export async function readSignals(key: string): Promise<string[]> {
-  checkProductionRedis();
   if (hasRedis()) {
-    return (await redisCommand<string[] | null>(['LRANGE', key, 0, -1])) ?? [];
+    const res = await safeRedisCommand<string[] | null>(['LRANGE', key, 0, -1]);
+    if (res.ok) return res.result ?? [];
   }
   cleanLocalKey(key);
   return localLists.get(key)?.values ?? [];
 }
 
 export async function incrementWithTtl(key: string, ttlSeconds: number): Promise<number> {
-  checkProductionRedis();
   if (hasRedis()) {
-    const count = await redisCommand<number>(['INCR', key]);
-    if (count === 1) await redisCommand(['EXPIRE', key, ttlSeconds]);
-    return Number(count);
+    const res = await safeRedisCommand<number>(['INCR', key]);
+    if (res.ok && res.result !== undefined) {
+      if (res.result === 1) await safeRedisCommand(['EXPIRE', key, ttlSeconds]);
+      return Number(res.result);
+    }
   }
 
   cleanLocalKey(key);

@@ -62,7 +62,17 @@ export function generateTurnCredentials(usernamePrefix = 'peerbridge', ttlSecond
     return [{ urls: defaultTurn, username: defaultUser, credential: defaultPass }];
   }
 
-  return [];
+  return [
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp'
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
+  ];
 }
 
 export function getClientIp(request: Request): string {
