@@ -14,24 +14,26 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
     const res = await fetch('/api/turn-credentials', { cache: 'no-store' });
     if (res.ok) {
-      const data = (await res.json()) as { success?: boolean; iceServers?: RTCIceServer[] };
-      if (data.success && Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+      const data = (await res.json()) as {
+        success?: boolean;
+        relayAvailable?: boolean;
+        iceServers?: RTCIceServer[];
+      };
+      if (data.success && Array.isArray(data.iceServers)) {
+        if (!data.relayAvailable) {
+          console.warn('[WebRTC] No TURN relay is configured; cross-network connectivity cannot be guaranteed.');
+        }
         return [DEFAULT_STUN_SERVERS, ...data.iceServers];
       }
+      console.warn('[WebRTC] TURN credentials response was invalid; trying configured fallback ICE servers.');
+    } else {
+      console.warn(`[WebRTC] TURN credentials request failed (${res.status}); trying configured fallback ICE servers.`);
     }
-  } catch {}
-
-  // Fallback to client environment config
-  const servers: RTCIceServer[] = [DEFAULT_STUN_SERVERS];
-
-  const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
-  const username = process.env.NEXT_PUBLIC_TURN_USERNAME;
-  const credential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
-  if (turnUrl && username && credential) {
-    servers.push({ urls: turnUrl, username, credential });
+  } catch (error) {
+    console.warn('[WebRTC] Could not fetch TURN credentials; trying configured fallback ICE servers.', error);
   }
 
-  return servers;
+  return buildIceServersSync();
 }
 
 export function buildIceServersSync(): RTCIceServer[] {
@@ -48,6 +50,24 @@ export function buildIceServersSync(): RTCIceServer[] {
 }
 
 export const buildIceServers = buildIceServersSync;
+
+export async function getIceRoute(pc: RTCPeerConnection): Promise<'relay' | 'direct' | 'unknown'> {
+  const stats = await pc.getStats();
+
+  for (const report of stats.values()) {
+    if (report.type !== 'candidate-pair') continue;
+    const pair = report as RTCIceCandidatePairStats & { selected?: boolean };
+    if (pair.state !== 'succeeded' || (!pair.selected && !pair.nominated)) continue;
+
+    const local = stats.get(pair.localCandidateId);
+    const remote = stats.get(pair.remoteCandidateId);
+    const localIsRelay = local && 'candidateType' in local && local.candidateType === 'relay';
+    const remoteIsRelay = remote && 'candidateType' in remote && remote.candidateType === 'relay';
+    return localIsRelay || remoteIsRelay ? 'relay' : 'direct';
+  }
+
+  return 'unknown';
+}
 
 export async function createPeerConnection(options: { forceTurn?: boolean } = {}) {
   const iceServers = await fetchIceServers();
@@ -68,4 +88,3 @@ export async function createPeerConnection(options: { forceTurn?: boolean } = {}
 
   return pc;
 }
-

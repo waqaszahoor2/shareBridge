@@ -9,11 +9,11 @@ PeerBridge is an enterprise-grade, responsive WebRTC peer-to-peer file and text 
 ## ✨ Key Features
 
 - **🚀 Direct Browser-to-Browser P2P**: File bytes stream directly between devices via WebRTC DataChannels with SCTP backpressure control and windowed acknowledgements.
-- **📱 Cross-Device & Cross-Network Reliability**: Full support for Mobile 4G/5G to Desktop Wi-Fi transfers backed by STUN/TURN fallback relay infrastructure (`openrelay.metered.ca`).
+- **📱 Cross-Device & Cross-Network Reliability**: Automatically falls back to a configured TURN relay when device networks block direct WebRTC connections, including Mobile 4G/5G to Desktop Wi-Fi.
 - **📝 1-Click Text & Snippet Sharing**: Type or paste notes, code snippets, and links to share instantly with built-in mobile clipboard copy (`navigator.clipboard` + WebView fallback).
 - **🎨 Interactive Vertical Theme Switcher**: Glassmorphic popover dropdown supporting ☀️ **Light Mode**, 🌙 **Dark Mode**, and 💻 **System Auto Mode** with high-contrast legibility.
 - **❓ First-Time Visitor Onboarding Tutorial**: Guided interactive pop-up tutorial modal with step navigation, dot indicators, and a 1-click **Skip** option.
-- **📂 Progressive Disk Streaming**: Integrates the File System Access API (`showDirectoryPicker`) for direct-to-disk streaming of 500MB+ files without memory bloat.
+- **📂 Progressive Disk Streaming**: Streams received files to a chosen folder or browser-managed private storage, avoiding whole-file RAM buffering for large transfers.
 - **🔒 Zero-Trust Security Architecture**:
   - Hashed owner/receiver session tokens (`SHA-256` + constant-time comparison).
   - Rate limiting & Same-Origin subdomain protection.
@@ -98,7 +98,10 @@ For production deployments on Vercel:
 
 1. Connect your repository to Vercel.
 2. Add an **Upstash Redis** integration from Vercel Marketplace (or set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`).
-3. Deploy to production!
+3. Configure a TURN service for cross-network connections. Set `TURN_SECRET` to its shared secret and `TURN_URLS` to its relay URLs (include TCP/TLS transports if your provider supports them). The server generates short-lived credentials. Alternatively, set `NEXT_PUBLIC_TURN_URL`, `NEXT_PUBLIC_TURN_USERNAME`, and `NEXT_PUBLIC_TURN_CREDENTIAL` for static provider credentials; these values are public to browser clients.
+4. Deploy to production.
+
+STUN can establish direct connections in many cases but cannot relay traffic. Without a configured, reachable TURN service, transfers across restrictive networks cannot be guaranteed. When a connection succeeds, the app reports whether it is using the direct path or a TURN relay.
 
 ---
 

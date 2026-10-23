@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 // Test 1: Code Normalization
 test('normalizeCode formats digits correctly', () => {
@@ -45,14 +46,16 @@ test('Duplicate file IDs rejection', () => {
 // Test 4: Chunk Size Calculation
 test('Chunk size calculation respects SCTP max message size', () => {
   function calculateChunkSize(maxMessageSize) {
-    const max = maxMessageSize || 16_384;
-    return Math.min(64 * 1024, Math.max(8 * 1024, Math.floor(max / 2)));
+    const max = maxMessageSize && maxMessageSize > 0 ? maxMessageSize : 64 * 1024;
+    return Math.max(1, Math.min(64 * 1024, Math.floor(max / 2)));
   }
 
   assert.equal(calculateChunkSize(65536), 32768);
   assert.equal(calculateChunkSize(131072), 65536);
   assert.equal(calculateChunkSize(262144), 65536);
   assert.equal(calculateChunkSize(16384), 8192);
+  assert.equal(calculateChunkSize(1024), 512);
+  assert.equal(calculateChunkSize(0), 32768);
 });
 
 // Test 5: Standardized Error Schema Format
@@ -308,15 +311,16 @@ test('Receiver claim reuse allows same receiver token on refresh', () => {
   assert.equal(res.reusable, true);
 });
 
-// Test 18: TURN Configuration Cleanliness
-test('No hard-coded public OpenRelay servers in TURN output', () => {
-  function filterTurnConfig(turnUrls) {
-    return (turnUrls || []).filter((u) => !u.includes('openrelay.metered.ca'));
-  }
+// Test 18: Configured TURN Relay Required
+test('TURN credentials are not silently replaced with a shared public relay', async () => {
+  const security = await readFile(new URL('../lib/server/security.ts', import.meta.url), 'utf8');
+  const turnCredentialFunction = security.slice(
+    security.indexOf('export function generateTurnCredentials'),
+    security.indexOf('\nexport function getClientIp')
+  );
 
-  const cleanUrls = filterTurnConfig(['stun:stun.l.google.com:19302']);
-  assert.equal(cleanUrls.length, 1);
-  assert.equal(cleanUrls.includes('turn:openrelay.metered.ca:80'), false);
+  assert.doesNotMatch(turnCredentialFunction, /openrelay\.metered\.ca/i);
+  assert.match(turnCredentialFunction, /return \[\];/);
 });
 
 // Test 19: Orphaned Claim Release Beacon
@@ -508,6 +512,4 @@ test('Clearing localStorage tutorial flag makes tutorial auto-open again on land
 
   assert.equal(checkAutoOpen('/'), true);
 });
-
-
 

@@ -38,7 +38,9 @@ export async function sendSelectedFiles(args: {
     ackedRef.current[item.meta.id] = 0;
     savedRef.current[item.meta.id] = false;
 
-    sendControl(channel, { kind: 'file-start', file: item.meta, chunkSize });
+    if (!sendControl(channel, { kind: 'file-start', file: item.meta, chunkSize })) {
+      throw new Error('Could not start file transfer because the connection closed.');
+    }
     onFileStart(item.meta.id);
 
     let offset = 0;
@@ -75,10 +77,13 @@ export async function sendSelectedFiles(args: {
       }
     }
 
-    sendControl(channel, { kind: 'file-end', fileId: item.meta.id });
+    if (!sendControl(channel, { kind: 'file-end', fileId: item.meta.id })) {
+      throw new Error('Could not finish file transfer because the connection closed.');
+    }
     await waitForFileSaved(item.meta.id, savedRef.current, isCancelled);
   }
 
-  sendControl(channel, { kind: 'all-complete' });
+  if (!sendControl(channel, { kind: 'all-complete' })) {
+    throw new Error('Could not confirm transfer completion because the connection closed.');
+  }
 }
-

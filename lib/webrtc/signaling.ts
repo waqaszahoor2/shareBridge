@@ -191,17 +191,16 @@ export function startSignalPolling(
       const res = await pollSignals({ ...args, since: lastSeq });
       delay = 600;
       consecutiveErrors = 0;
-      if (res.lastSeq && res.lastSeq > lastSeq) {
-        lastSeq = res.lastSeq;
-      }
-      for (const message of res.messages || []) {
+      const messages = [...(res.messages || [])].sort((a, b) => a.seq - b.seq);
+      for (const message of messages) {
         if (seen.has(message.id)) continue;
+        await onMessage(message);
         seen.add(message.id);
+        if (message.seq > lastSeq) lastSeq = message.seq;
         if (seen.size > 500) {
           const first = seen.values().next().value as string | undefined;
           if (first) seen.delete(first);
         }
-        await onMessage(message);
       }
     } catch (error) {
       consecutiveErrors += 1;

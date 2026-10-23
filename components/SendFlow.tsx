@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { fileMeta } from '@/lib/client/files';
 import { approveSession, createTransferSession, declineSession, sendSignal, startSessionStatusPolling, startSignalPolling } from '@/lib/client/signaling';
-import { createPeerConnection } from '@/lib/webrtc/peerConnection';
+import { createPeerConnection, getIceRoute } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { sendSelectedFiles } from '@/lib/webrtc/sender';
 import { waitForReceiverReady } from '@/lib/webrtc/chunkTransfer';
@@ -317,10 +317,14 @@ export default function SendFlow() {
         if (stateRef.current === 'connecting') {
           cleanupConnection();
           setState('failed');
-          setError('WebRTC peer connection timed out after 45 seconds.');
-          setErrorReasons(['Symmetric NAT or firewall blocking UDP/TCP peer connection', 'TRY TURN relay or check internet access']);
+          setError('WebRTC peer connection timed out after 90 seconds.');
+          setErrorReasons([
+            'Cross-network connections need a reachable TURN server when direct connectivity is blocked',
+            'Configure TURN_URLS and TURN_SECRET, or static NEXT_PUBLIC_TURN_* credentials, then redeploy',
+            'Check whether the TURN server allows UDP and TCP/TLS traffic'
+          ]);
         }
-      }, 45_000);
+      }, 90_000);
 
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
@@ -340,8 +344,17 @@ export default function SendFlow() {
       pc.onconnectionstatechange = () => {
         const status = pc.connectionState;
         if (status === 'connected') {
-          if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
-          setPeerStatus('Direct peer connected');
+          void getIceRoute(pc)
+            .then((route) => {
+              if (pcRef.current !== pc) return;
+              setPeerStatus(
+                route === 'relay' ? 'Connected via TURN relay' : route === 'direct' ? 'Direct peer connected' : 'Peer connected'
+              );
+            })
+            .catch((error) => {
+              console.warn('[WebRTC] Could not determine the selected ICE route.', error);
+              if (pcRef.current === pc) setPeerStatus('Peer connected');
+            });
         }
         if (status === 'failed') {
           setPeerStatus('Connection interrupted');
@@ -349,7 +362,10 @@ export default function SendFlow() {
             cleanupConnection();
             setState('failed');
             setError('The WebRTC connection was interrupted.');
-            setErrorReasons(['Network disconnect between devices', 'NAT firewall closed media stream']);
+            setErrorReasons([
+              'The direct network path failed and the TURN relay may be unavailable',
+              'Configure a reachable TURN server with TURN_URLS and TURN_SECRET, or static NEXT_PUBLIC_TURN_* credentials'
+            ]);
           }
         }
       };
@@ -357,11 +373,15 @@ export default function SendFlow() {
       channel.onopen = () => {
         if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
         setPrepProgress(50);
-        sendControl(channel, {
+        if (!sendControl(channel, {
           kind: 'transfer-approved',
           sessionId: code,
           files: selected.map((item) => item.meta)
-        });
+        })) {
+          cleanupConnection();
+          updateState('failed');
+          setError('Could not send the approved file list to the receiver.');
+        }
       };
 
       channel.onmessage = (event) => {
@@ -372,11 +392,21 @@ export default function SendFlow() {
             fileId?: string;
             receivedBytes?: number;
             receiverId?: string;
+            message?: string;
           };
 
           if (message.kind === 'receiver-ready' || message.kind === 'manifest-ready') {
             receiverReadyRef.current = true;
             void startFileTransmission();
+          } else if (message.kind === 'error') {
+            cancelledRef.current = true;
+            cleanupConnection();
+            updateState('failed');
+            setError(message.message || 'The receiver could not save the incoming file.');
+            setErrorReasons([
+              'Check available storage on the receiving device',
+              'Retry the transfer after confirming the receiver can save large files'
+            ]);
           } else if (message.kind === 'decline' || message.kind === 'cancel') {
             cancelledRef.current = true;
             cleanupConnection();
@@ -392,8 +422,18 @@ export default function SendFlow() {
 
       channel.onclose = () => {
         if (stateRef.current !== 'completed' && !cancelledRef.current) {
+          cleanupConnection();
+          updateState('failed');
           setPeerStatus('Transfer channel closed');
+          setError('The connection closed before the transfer completed.');
         }
+      };
+
+      channel.onerror = () => {
+        if (stateRef.current === 'completed' || cancelledRef.current) return;
+        cleanupConnection();
+        updateState('failed');
+        setError('The peer-to-peer data channel reported an error.');
       };
 
       stopPollRef.current = startSignalPolling(
@@ -487,7 +527,7 @@ export default function SendFlow() {
         selected.map((item) => item.meta),
         Date.now() - transferStartedAtRef.current
       );
-      setState('completed');
+      updateState('completed');
       setPeerStatus('All files transferred successfully');
       // Purge room keys from Upstash Redis immediately on completion
       fetch('/api/session/release', {

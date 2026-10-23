@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { safeFileName } from '@/lib/client/files';
 import { getSessionStatus, joinTransferSession, releaseTransferSession, sendSignal, startSessionStatusPolling, startSignalPolling } from '@/lib/client/signaling';
-import { createPeerConnection } from '@/lib/webrtc/peerConnection';
+import { createPeerConnection, getIceRoute } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { triggerFileDownload, validateIncomingManifest } from '@/lib/webrtc/receiver';
 import { checkBrowserCapabilities } from '@/lib/client/capability';
@@ -28,21 +28,31 @@ type WriterLike = {
 
 type FileHandleLike = {
   createWritable(): Promise<WriterLike>;
+  getFile(): Promise<Blob>;
 };
 
 type DirectoryHandleLike = {
   getFileHandle(name: string, options?: { create?: boolean }): Promise<FileHandleLike>;
+  removeEntry?(name: string): Promise<void>;
+};
+
+type PreparedStorage = {
+  writer: WriterLike;
+  getFile: () => Promise<Blob>;
+  saveDirectly: boolean;
+  cleanup?: () => Promise<void>;
 };
 
 type ActiveFile = {
   meta: FileMeta;
-  writerPromise: Promise<WriterLike | null>;
+  storagePromise: Promise<PreparedStorage | null>;
   chunks: ArrayBuffer[];
   received: number;
   nextAck: number;
 };
 
 const ACK_STEP = 512 * 1024;
+const MAX_IN_MEMORY_FILE_SIZE = 128 * 1024 * 1024;
 const STORAGE_KEY = 'peerbridge_receiver_session';
 
 async function uniqueFileHandle(directory: DirectoryHandleLike, originalName: string) {
@@ -291,11 +301,15 @@ export default function ReceiveFlow() {
       connectionTimeoutRef.current = setTimeout(() => {
         if (stateRef.current === 'connecting' || stateRef.current === 'joining') {
           cleanupConnection(true);
-          setState('failed');
-          setError('WebRTC peer connection timed out after 45 seconds.');
-          setErrorReasons(['Network disconnect between devices', 'NAT firewall blocking peer connection']);
+          updateState('failed');
+          setError('WebRTC peer connection timed out after 90 seconds.');
+          setErrorReasons([
+            'Cross-network connections need a reachable TURN server when direct connectivity is blocked',
+            'Configure TURN_URLS and TURN_SECRET, or static NEXT_PUBLIC_TURN_* credentials, then redeploy',
+            'Check whether the TURN server allows UDP and TCP/TLS traffic'
+          ]);
         }
-      }, 45_000);
+      }, 90_000);
 
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
@@ -314,8 +328,17 @@ export default function ReceiveFlow() {
 
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
-          if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
-          setPeerStatus('Peer connected — receiving transfer stream');
+          void getIceRoute(pc)
+            .then((route) => {
+              if (pcRef.current !== pc) return;
+              setPeerStatus(
+                route === 'relay' ? 'Connected via TURN relay' : 'Peer connected — receiving transfer stream'
+              );
+            })
+            .catch((error) => {
+              console.warn('[WebRTC] Could not determine the selected ICE route.', error);
+              if (pcRef.current === pc) setPeerStatus('Peer connected — receiving transfer stream');
+            });
         }
         if (pc.connectionState === 'disconnected') {
           setPeerStatus('Reconnecting peer network...');
@@ -327,9 +350,9 @@ export default function ReceiveFlow() {
             setState('failed');
             setError('The WebRTC connection was interrupted.');
             setErrorReasons([
-              'Cellular network switched or NAT firewall blocked direct P2P',
+              'The direct network path failed and the TURN relay may be unavailable',
               'Sender closed connection or device screen turned off',
-              'Try connecting again — TURN relay will auto-assist cross-network connections'
+              'Configure a reachable TURN server with TURN_URLS and TURN_SECRET, or static NEXT_PUBLIC_TURN_* credentials'
             ]);
           }
         }
@@ -445,13 +468,13 @@ export default function ReceiveFlow() {
 
     channel.onclose = () => {
       if (stateRef.current !== 'completed' && !cancelledRef.current) {
-        setPeerStatus('Transfer channel closed');
+        failIncomingTransfer(channel, new Error('Transfer connection closed before all files were saved.'));
       }
     };
 
     channel.onerror = () => {
       if (stateRef.current !== 'completed' && !cancelledRef.current) {
-        setError('The peer-to-peer data channel reported an error.');
+        failIncomingTransfer(channel, new Error('The peer-to-peer data channel reported an error.'));
       }
     };
 
@@ -482,13 +505,14 @@ export default function ReceiveFlow() {
         totalBytesRef.current = total;
         setIncoming(files);
 
-        // Notify user if large file on unsupported browser
-        if (!directoryRef.current && total > 500 * 1024 * 1024) {
-          setToast({
-            id: Date.now().toString(),
-            type: 'info',
-            text: 'Files total > 500MB without disk streaming access. High memory usage may occur.'
-          });
+        if (
+          !directoryRef.current &&
+          files.some((file) => file.size > MAX_IN_MEMORY_FILE_SIZE) &&
+          !supportsOriginPrivateFileSystem()
+        ) {
+          throw new Error(
+            'This browser cannot stream large files to disk. Choose a save folder before joining, or use a browser that supports private file storage.'
+          );
         }
 
         startedAtRef.current = performance.now();
@@ -499,7 +523,9 @@ export default function ReceiveFlow() {
         setPeerStatus('Preparing storage & streaming files...');
 
         // Send automatic manifest-ready response back to sender
-        sendControl(channel, { kind: 'manifest-ready' });
+        if (!sendControl(channel, { kind: 'manifest-ready' })) {
+          throw new Error('Could not confirm the transfer manifest because the connection closed.');
+        }
         updateState('transferring');
         setPeerStatus('Receiving files...');
         return;
@@ -507,13 +533,11 @@ export default function ReceiveFlow() {
 
       if (message.kind === 'file-start' && message.file) {
         updateState('transferring');
-        let meta = incomingRef.current.find((file) => file.id === message.file?.id);
-        if (!meta) {
-          meta = message.file;
-        }
+        const meta = incomingRef.current.find((file) => file.id === message.file?.id);
+        if (!meta) throw new Error('Sender started a file that was not in the approved transfer list.');
         setActiveFileName(meta.name);
-        const writerPromise = prepareWriter(meta);
-        activeRef.current = { meta, writerPromise, chunks: [], received: 0, nextAck: ACK_STEP };
+        const storagePromise = prepareStorage(meta);
+        activeRef.current = { meta, storagePromise, chunks: [], received: 0, nextAck: ACK_STEP };
         return;
       }
 
@@ -521,19 +545,18 @@ export default function ReceiveFlow() {
         const context = activeRef.current;
         if (!context) return;
         if (context.meta.id !== message.fileId) {
-          console.warn('[ReceiveFlow] File ID mismatch on end:', message.fileId, context.meta.id);
+          throw new Error('Sender ended a different file than the one currently being received.');
         }
         activeRef.current = null;
         writeChainRef.current = writeChainRef.current.then(async () => {
           if (context.received !== context.meta.size) throw new Error('Received file size mismatch.');
 
-          const blob = new Blob(context.chunks, { type: context.meta.type });
-          if (
-            context.meta.type.includes('text') ||
-            context.meta.extension === '.txt' ||
-            context.meta.name.endsWith('.txt') ||
-            context.meta.size < 500_000
-          ) {
+          const storage = await context.storagePromise;
+          if (storage) await storage.writer.close();
+          const blob = storage
+            ? await storage.getFile()
+            : new Blob(context.chunks, { type: context.meta.type });
+          if (context.meta.size <= 500_000) {
             try {
               const text = await blob.text();
               if (text && !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 200))) {
@@ -542,16 +565,20 @@ export default function ReceiveFlow() {
             } catch {}
           }
 
-          const writer = await context.writerPromise;
-          if (writer) {
-            await writer.close();
+          if (storage?.saveDirectly) {
+            // The selected destination folder already contains the saved file.
           } else {
             triggerFileDownload(blob, context.meta.name);
+            await storage?.cleanup?.();
           }
           if (channel.readyState === 'open') {
-            sendControl(channel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: context.received });
-            sendControl(channel, { kind: 'file-saved', fileId: context.meta.id });
+            if (!sendControl(channel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: context.received }) ||
+                !sendControl(channel, { kind: 'file-saved', fileId: context.meta.id })) {
+              throw new Error('The connection closed before the saved file could be acknowledged.');
+            }
           }
+        }).catch((cause) => {
+          failIncomingTransfer(channel, cause instanceof Error ? cause : new Error('Could not finish saving the received file.'));
         });
         return;
       }
@@ -565,7 +592,7 @@ export default function ReceiveFlow() {
           );
           setTotalReceived(totalBytesRef.current);
           setEta(0);
-          setState('completed');
+          updateState('completed');
           setPeerStatus('Transfer completed');
           clearSessionSnapshot(STORAGE_KEY);
           // Purge room keys from Upstash Redis immediately on completion
@@ -586,24 +613,52 @@ export default function ReceiveFlow() {
         setError('Sender cancelled or declined the transfer.');
       }
     } catch (cause) {
-      cleanupConnection(true);
-      setState('failed');
-      setError(cause instanceof Error ? cause.message : 'Invalid transfer message received.');
-      try {
-        sendControl(channel, { kind: 'cancel' });
-      } catch {}
+      failIncomingTransfer(
+        channel,
+        cause instanceof Error ? cause : new Error('Invalid transfer message received.')
+      );
     }
   }
 
-  async function prepareWriter(meta: FileMeta): Promise<WriterLike | null> {
+  function supportsOriginPrivateFileSystem() {
+    if (typeof navigator === 'undefined') return false;
+    const storage = navigator.storage as (StorageManager & { getDirectory?: unknown }) | undefined;
+    return typeof storage?.getDirectory === 'function';
+  }
+
+  async function prepareStorage(meta: FileMeta): Promise<PreparedStorage | null> {
     const dir = directoryRef.current;
-    if (!dir) return null;
-    try {
+    if (dir) {
       const handle = await uniqueFileHandle(dir, meta.name);
-      return await handle.createWritable();
-    } catch {
-      return null;
+      return {
+        writer: await handle.createWritable(),
+        getFile: () => handle.getFile(),
+        saveDirectly: true
+      };
     }
+
+    if (supportsOriginPrivateFileSystem()) {
+      const storage = navigator.storage as StorageManager & {
+        getDirectory: () => Promise<DirectoryHandleLike>;
+      };
+      const root = await storage.getDirectory();
+      const temporaryName = `peerbridge-${crypto.randomUUID()}`;
+      const handle = await root.getFileHandle(temporaryName, { create: true });
+      return {
+        writer: await handle.createWritable(),
+        getFile: () => handle.getFile(),
+        saveDirectly: false,
+        cleanup: () => root.removeEntry?.(temporaryName) ?? Promise.resolve()
+      };
+    }
+
+    if (meta.size > MAX_IN_MEMORY_FILE_SIZE) {
+      throw new Error(
+        `Cannot receive "${meta.name}" without disk streaming support. Choose a save folder or use a browser that supports private file storage.`
+      );
+    }
+
+    return null;
   }
 
   function enqueueBinary(channel: RTCDataChannel, buffer: ArrayBuffer) {
@@ -611,22 +666,28 @@ export default function ReceiveFlow() {
     if (!context || stateRef.current !== 'transferring') return;
 
     context.received += buffer.byteLength;
-    totalReceivedRef.current += buffer.byteLength;
-
-    if (context.received >= context.nextAck || context.received === context.meta.size) {
-      context.nextAck = context.received + ACK_STEP;
-      try {
-        sendControl(channel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: context.received });
-      } catch {}
+    if (context.received > context.meta.size) {
+      failIncomingTransfer(channel, new Error(`Received more data than expected for "${context.meta.name}".`));
+      return;
     }
+    totalReceivedRef.current += buffer.byteLength;
+    const receivedAt = context.received;
 
     writeChainRef.current = writeChainRef.current.then(async () => {
-      const writer = await context.writerPromise;
-      if (writer) {
-        await writer.write(buffer);
+      const storage = await context.storagePromise;
+      if (storage) {
+        await storage.writer.write(buffer);
       } else {
         context.chunks.push(buffer);
       }
+      if (receivedAt >= context.nextAck || receivedAt === context.meta.size) {
+        context.nextAck = receivedAt + ACK_STEP;
+        if (!sendControl(channel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: receivedAt })) {
+          throw new Error('The connection closed before received data could be acknowledged.');
+        }
+      }
+    }).catch((cause) => {
+      failIncomingTransfer(channel, cause instanceof Error ? cause : new Error('Could not save received data.'));
     });
 
     const now = performance.now();
@@ -639,6 +700,19 @@ export default function ReceiveFlow() {
       setEta(currentSpeed > 0 ? remainingBytes / currentSpeed : 0);
       lastUiRef.current = now;
     }
+  }
+
+  function failIncomingTransfer(channel: RTCDataChannel, cause: Error) {
+    if (cancelledRef.current || stateRef.current === 'failed') return;
+    sendControl(channel, { kind: 'error', message: cause.message });
+    sendControl(channel, { kind: 'cancel' });
+    cleanupConnection(true);
+    setState('failed');
+    setError(cause.message);
+    setErrorReasons([
+      'Check that the receiving device has enough free storage',
+      'Keep both devices awake and connected to a stable network, then retry'
+    ]);
   }
 
   function cancelTransfer() {

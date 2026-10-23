@@ -18,6 +18,7 @@ export async function GET(request: Request) {
 
     return noStoreJson({
       success: true,
+      relayAvailable: iceServers.length > 0,
       iceServers
     });
   } catch (err) {

@@ -34,13 +34,25 @@ export async function waitForBuffer(channel: RTCDataChannel, highWaterMark = 102
       reject(new Error('Transfer channel closed unexpectedly.'));
     };
 
+    const onError = () => {
+      cleanup();
+      reject(new Error('Transfer channel encountered a network error.'));
+    };
+
     const cleanup = () => {
       clearTimeout(timeout);
       channel.removeEventListener('bufferedamountlow', onLow);
       channel.removeEventListener('close', onClose);
+      channel.removeEventListener('error', onError);
     };
 
     channel.addEventListener('bufferedamountlow', onLow, { once: true });
     channel.addEventListener('close', onClose, { once: true });
+    channel.addEventListener('error', onError, { once: true });
+    if (channel.readyState !== 'open') {
+      onClose();
+    } else if (channel.bufferedAmount <= highWaterMark) {
+      onLow();
+    }
   });
 }
