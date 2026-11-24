@@ -9,6 +9,7 @@ PeerBridge is an enterprise-grade, responsive WebRTC peer-to-peer file and text 
 ## ✨ Key Features
 
 - **🚀 Direct Browser-to-Browser P2P**: File bytes stream directly between devices via WebRTC DataChannels with SCTP backpressure control and windowed acknowledgements.
+- **⚡ Low-Latency Signaling**: Authenticated server-sent events deliver WebRTC signaling promptly, with HTTP polling retained as a fallback for restrictive networks.
 - **📱 Cross-Device & Cross-Network Reliability**: Automatically falls back to a configured TURN relay when device networks block direct WebRTC connections, including Mobile 4G/5G to Desktop Wi-Fi.
 - **📝 1-Click Text & Snippet Sharing**: Type or paste notes, code snippets, and links to share instantly with built-in mobile clipboard copy (`navigator.clipboard` + WebView fallback).
 - **🎨 Interactive Vertical Theme Switcher**: Glassmorphic popover dropdown supporting ☀️ **Light Mode**, 🌙 **Dark Mode**, and 💻 **System Auto Mode** with high-contrast legibility.
@@ -102,6 +103,8 @@ For production deployments on Vercel:
 4. Deploy to production.
 
 STUN can establish direct connections in many cases but cannot relay traffic. Without a configured, reachable TURN service, transfers across restrictive networks cannot be guaranteed. When a connection succeeds, the app reports whether it is using the direct path or a TURN relay.
+
+Room creation and signaling require an internet connection to reach the PeerBridge app and its shared session store. Direct file bytes can use a local network once peers connect, but offline hotspot pairing without server access is not currently supported.
 
 ---
 

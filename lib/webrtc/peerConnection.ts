@@ -10,9 +10,18 @@ const DEFAULT_STUN_SERVERS: RTCIceServer = {
   ]
 };
 
+const ICE_CREDENTIAL_TIMEOUT_MS = 5_000;
+const ICE_SERVER_CACHE_MS = 5 * 60_000;
+let iceServersCache: { expiresAt: number; promise: Promise<RTCIceServer[]> } | null = null;
+
 export async function fetchIceServers(): Promise<RTCIceServer[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ICE_CREDENTIAL_TIMEOUT_MS);
   try {
-    const res = await fetch('/api/turn-credentials', { cache: 'no-store' });
+    const res = await fetch('/api/turn-credentials', {
+      cache: 'no-store',
+      signal: controller.signal
+    });
     if (res.ok) {
       const data = (await res.json()) as {
         success?: boolean;
@@ -23,7 +32,7 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
         if (!data.relayAvailable) {
           console.warn('[WebRTC] No TURN relay is configured; cross-network connectivity cannot be guaranteed.');
         }
-        return [DEFAULT_STUN_SERVERS, ...data.iceServers];
+        return mergeIceServers([...buildIceServersSync(), ...data.iceServers]);
       }
       console.warn('[WebRTC] TURN credentials response was invalid; trying configured fallback ICE servers.');
     } else {
@@ -31,9 +40,36 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
     }
   } catch (error) {
     console.warn('[WebRTC] Could not fetch TURN credentials; trying configured fallback ICE servers.', error);
+  } finally {
+    clearTimeout(timeout);
   }
 
   return buildIceServersSync();
+}
+
+function getIceServers(): Promise<RTCIceServer[]> {
+  if (!iceServersCache || iceServersCache.expiresAt <= Date.now()) {
+    iceServersCache = {
+      expiresAt: Date.now() + ICE_SERVER_CACHE_MS,
+      promise: fetchIceServers()
+    };
+  }
+  return iceServersCache.promise;
+}
+
+export function prefetchIceServers() {
+  void getIceServers();
+}
+
+function mergeIceServers(servers: RTCIceServer[]): RTCIceServer[] {
+  const seen = new Set<string>();
+  return servers.filter((server) => {
+    const urls = Array.isArray(server.urls) ? [...server.urls].sort().join(',') : server.urls;
+    const key = `${urls}|${server.username ?? ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function buildIceServersSync(): RTCIceServer[] {
@@ -70,7 +106,7 @@ export async function getIceRoute(pc: RTCPeerConnection): Promise<'relay' | 'dir
 }
 
 export async function createPeerConnection(options: { forceTurn?: boolean } = {}) {
-  const iceServers = await fetchIceServers();
+  const iceServers = await getIceServers();
   const forceTurn = options.forceTurn ?? process.env.NEXT_PUBLIC_FORCE_TURN === 'true';
 
   const configuration: RTCConfiguration = {

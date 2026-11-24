@@ -88,7 +88,12 @@ export async function joinTransferSession(args: { code: string; receiverId?: str
   throw lastError || new Error('Transfer code not found');
 }
 
-export async function releaseTransferSession(args: { code: string; receiverId?: string; resumeToken?: string }) {
+export async function releaseTransferSession(args: {
+  code: string;
+  receiverId?: string;
+  resumeToken?: string;
+  purge?: boolean;
+}) {
   try {
     await postJson<{ success: boolean }>('/api/session/release', args);
   } catch {}
@@ -217,5 +222,96 @@ export function startSignalPolling(
   return () => {
     active = false;
     if (timer) clearTimeout(timer);
+  };
+}
+
+export function startSignalSubscription(
+  args: { code: string; role: PeerRole; token: string },
+  onMessage: (message: SignalMessage) => Promise<void> | void,
+  onError: (error: Error) => void
+) {
+  let active = true;
+  let fallback: (() => void) | undefined;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let controller: AbortController | undefined;
+  const seen = new Set<string>();
+
+  const deliver = async (message: SignalMessage) => {
+    if (!active || seen.has(message.id)) return;
+    await onMessage(message);
+    seen.add(message.id);
+    if (seen.size > 500) {
+      const oldest = seen.values().next().value as string | undefined;
+      if (oldest) seen.delete(oldest);
+    }
+  };
+
+  const startFallback = () => {
+    if (!active || fallback) return;
+    fallback = startSignalPolling(args, deliver, onError);
+  };
+
+  const connect = async () => {
+    if (!active) return;
+    controller = new AbortController();
+    try {
+      const response = await fetch('/api/signal/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args),
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      if (!response.ok || !response.body) {
+        throw new Error(`Realtime signal stream failed (${response.status}).`);
+      }
+
+      fallback?.();
+      fallback = undefined;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let pending = '';
+      while (active) {
+        const { done, value } = await reader.read();
+        if (done) throw new Error('Realtime signal stream closed.');
+        pending += decoder.decode(value, { stream: true });
+
+        let boundary = pending.search(/\r?\n\r?\n/);
+        while (boundary !== -1) {
+          const frame = pending.slice(0, boundary);
+          pending = pending.slice(boundary).replace(/^\r?\n\r?\n/, '');
+          const data = frame.split(/\r?\n/)
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trimStart())
+            .join('\n');
+          if (data) {
+            const message = JSON.parse(data) as SignalMessage;
+            if (
+              typeof message.id !== 'string' ||
+              typeof message.seq !== 'number' ||
+              !['offer', 'answer', 'ice'].includes(message.type)
+            ) {
+              throw new Error('Realtime signal stream sent an invalid message.');
+            }
+            await deliver(message);
+          }
+          boundary = pending.search(/\r?\n\r?\n/);
+        }
+      }
+    } catch (error) {
+      if (!active) return;
+      console.warn('[Signal] Realtime stream disconnected; using HTTP polling fallback.', error);
+      startFallback();
+      retryTimer = setTimeout(() => void connect(), 3_000);
+    }
+  };
+
+  void connect();
+  return () => {
+    active = false;
+    if (retryTimer) clearTimeout(retryTimer);
+    controller?.abort();
+    fallback?.();
   };
 }

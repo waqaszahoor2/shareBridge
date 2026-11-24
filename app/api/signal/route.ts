@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { PeerRole, SignalMessage, SignalType } from '@/lib/types';
-import { enforceRateLimit, isSameOrigin, noStoreJson, normalizeCode, safeSecretEquals, SESSION_TTL_SECONDS } from '@/lib/server/security';
+import { enforceRateLimit, isSameOrigin, noStoreJson, normalizeCode, SESSION_TTL_SECONDS } from '@/lib/server/security';
 import { get, hasRedis, incrementWithTtl, pushSignal, readSignals } from '@/lib/server/store';
+import { authenticateSignal } from '@/lib/server/signalAuth';
+import { emitSignal } from '@/lib/server/signalRealtime';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,34 +20,6 @@ type SignalBody = {
   payload?: unknown;
   since?: number;
 };
-
-async function authenticate(code: string, role: PeerRole, token: string) {
-  if (!token || token.length < 16 || token.length > 128) return false;
-
-  if (role === 'sender') {
-    const raw = await get(`pb:session:${code}`);
-    if (!raw) return false;
-    try {
-      const session = JSON.parse(raw) as { ownerHash?: string };
-      return Boolean(session.ownerHash && safeSecretEquals(token, session.ownerHash));
-    } catch {
-      return false;
-    }
-  }
-
-  const session = await get(`pb:session:${code}`);
-  if (!session) return false;
-  const receiverClaimRaw = await get(`pb:receiver:${code}`);
-  if (!receiverClaimRaw) return false;
-
-  let tokenHash = receiverClaimRaw;
-  try {
-    const parsed = JSON.parse(receiverClaimRaw) as { tokenHash?: string };
-    if (parsed.tokenHash) tokenHash = parsed.tokenHash;
-  } catch {}
-
-  return Boolean(tokenHash && safeSecretEquals(token, tokenHash));
-}
 
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
@@ -97,7 +71,7 @@ export async function POST(request: Request) {
     return noStoreJson({ success: false, error: 'Invalid signaling credentials.' }, { status: 400 });
   }
 
-  if (!(await authenticate(code, role, token))) {
+  if (!(await authenticateSignal(code, role, token))) {
     return noStoreJson(
       {
         success: false,
@@ -153,9 +127,13 @@ export async function POST(request: Request) {
 
     const destination: PeerRole = role === 'sender' ? 'receiver' : 'sender';
     await pushSignal(`pb:sig:${code}:${destination}`, JSON.stringify(message), SESSION_TTL_SECONDS);
+    try {
+      await emitSignal(code, destination, message);
+    } catch (error) {
+      console.warn('[Signal] Realtime publish failed; the HTTP polling fallback remains available.', error);
+    }
     return noStoreJson({ success: true, ok: true, id: message.id, seq });
   }
 
   return noStoreJson({ success: false, error: 'Unsupported signaling action.' }, { status: 400 });
 }
-

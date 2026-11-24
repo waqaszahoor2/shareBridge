@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    agentUpgrade: 'security'
+  },
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   async headers() {

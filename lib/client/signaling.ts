@@ -6,6 +6,7 @@ export {
   releaseTransferSession,
   sendSignal,
   pollSignals,
+  startSignalSubscription,
   startSignalPolling,
   getSessionStatus,
   approveSession,

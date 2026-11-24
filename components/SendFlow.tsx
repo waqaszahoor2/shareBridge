@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { fileMeta } from '@/lib/client/files';
-import { approveSession, createTransferSession, declineSession, sendSignal, startSessionStatusPolling, startSignalPolling } from '@/lib/client/signaling';
-import { createPeerConnection, getIceRoute } from '@/lib/webrtc/peerConnection';
+import { approveSession, createTransferSession, declineSession, sendSignal, startSessionStatusPolling, startSignalSubscription } from '@/lib/client/signaling';
+import { createPeerConnection, getIceRoute, prefetchIceServers } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { sendSelectedFiles } from '@/lib/webrtc/sender';
 import { waitForReceiverReady } from '@/lib/webrtc/chunkTransfer';
@@ -48,6 +48,7 @@ export default function SendFlow() {
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
+  const controlChannelRef = useRef<RTCDataChannel | null>(null);
   const stopPollRef = useRef<null | (() => void)>(null);
   const stopStatusPollRef = useRef<null | (() => void)>(null);
   const sessionTokenRef = useRef<string>('');
@@ -97,6 +98,7 @@ export default function SendFlow() {
   }, [expiresAt]);
 
   useEffect(() => {
+    prefetchIceServers();
     const handleBeforeUnload = () => {
       if (stateRef.current === 'waiting-for-receiver' || stateRef.current === 'waiting-for-sender-approval') {
         if (codeRef.current && sessionTokenRef.current) {
@@ -169,13 +171,18 @@ export default function SendFlow() {
 
     stopPollRef.current?.();
     stopPollRef.current = null;
+    pendingIceRef.current = [];
     try {
       channelRef.current?.close();
+    } catch {}
+    try {
+      controlChannelRef.current?.close();
     } catch {}
     try {
       pcRef.current?.close();
     } catch {}
     channelRef.current = null;
+    controlChannelRef.current = null;
     pcRef.current = null;
   }
 
@@ -309,9 +316,11 @@ export default function SendFlow() {
 
       const pc = await createPeerConnection();
       pcRef.current = pc;
-      const channel = pc.createDataChannel('peerbridge-files', { ordered: true });
-      channel.binaryType = 'arraybuffer';
-      channelRef.current = channel;
+      const controlChannel = pc.createDataChannel('peerbridge-control', { negotiated: true, id: 0, ordered: true });
+      const dataChannel = pc.createDataChannel('peerbridge-data', { negotiated: true, id: 1, ordered: true });
+      dataChannel.binaryType = 'arraybuffer';
+      controlChannelRef.current = controlChannel;
+      channelRef.current = dataChannel;
 
       connectionTimeoutRef.current = setTimeout(() => {
         if (stateRef.current === 'connecting') {
@@ -370,10 +379,17 @@ export default function SendFlow() {
         }
       };
 
-      channel.onopen = () => {
+      let approvalSent = false;
+      const sendApproval = () => {
+        if (
+          approvalSent ||
+          controlChannel.readyState !== 'open' ||
+          dataChannel.readyState !== 'open'
+        ) return;
+        approvalSent = true;
         if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
         setPrepProgress(50);
-        if (!sendControl(channel, {
+        if (!sendControl(controlChannel, {
           kind: 'transfer-approved',
           sessionId: code,
           files: selected.map((item) => item.meta)
@@ -383,8 +399,10 @@ export default function SendFlow() {
           setError('Could not send the approved file list to the receiver.');
         }
       };
+      controlChannel.onopen = sendApproval;
+      dataChannel.onopen = sendApproval;
 
-      channel.onmessage = (event) => {
+      controlChannel.onmessage = (event) => {
         if (typeof event.data !== 'string') return;
         try {
           const message = JSON.parse(event.data) as {
@@ -420,7 +438,7 @@ export default function SendFlow() {
         } catch {}
       };
 
-      channel.onclose = () => {
+      const handleChannelClose = () => {
         if (stateRef.current !== 'completed' && !cancelledRef.current) {
           cleanupConnection();
           updateState('failed');
@@ -428,15 +446,19 @@ export default function SendFlow() {
           setError('The connection closed before the transfer completed.');
         }
       };
+      controlChannel.onclose = handleChannelClose;
+      dataChannel.onclose = handleChannelClose;
 
-      channel.onerror = () => {
+      const handleChannelError = () => {
         if (stateRef.current === 'completed' || cancelledRef.current) return;
         cleanupConnection();
         updateState('failed');
         setError('The peer-to-peer data channel reported an error.');
       };
+      controlChannel.onerror = handleChannelError;
+      dataChannel.onerror = handleChannelError;
 
-      stopPollRef.current = startSignalPolling(
+      stopPollRef.current = startSignalSubscription(
         { code, role: 'sender', token: sessionTokenRef.current },
         handleSignal,
         (pollError) => {
@@ -451,8 +473,11 @@ export default function SendFlow() {
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const initialOffer = pc.localDescription;
+      if (!initialOffer) throw new Error('Could not prepare the WebRTC offer.');
       await sendSignal(
-        { code, role: 'sender', token: sessionTokenRef.current, type: 'offer', payload: offer },
+        { code, role: 'sender', token: sessionTokenRef.current, type: 'offer', payload: initialOffer },
         30_000
       );
     } catch (cause) {
@@ -476,8 +501,8 @@ export default function SendFlow() {
       void declineSession({ code, role: 'sender', token: sessionTokenRef.current });
     }
     try {
-      if (channelRef.current?.readyState === 'open') {
-        sendControl(channelRef.current, { kind: 'decline' });
+      if (controlChannelRef.current?.readyState === 'open') {
+        sendControl(controlChannelRef.current, { kind: 'decline' });
       }
     } catch {}
     cleanupConnection();
@@ -489,12 +514,13 @@ export default function SendFlow() {
     if (sendingRef.current) return;
     sendingRef.current = true;
     const channel = channelRef.current;
+    const controlChannel = controlChannelRef.current;
     const pc = pcRef.current;
 
-    if (!channel || !pc || channel.readyState !== 'open') {
+    if (!channel || !controlChannel || !pc || channel.readyState !== 'open' || controlChannel.readyState !== 'open') {
       sendingRef.current = false;
       setIsApproving(false);
-      setError('Transfer channel is not connected.');
+      setError('Transfer channels are not connected.');
       return;
     }
 
@@ -507,6 +533,7 @@ export default function SendFlow() {
       await sendSelectedFiles({
         files: selected,
         channel,
+        controlChannel,
         pc,
         ackedRef,
         savedRef,

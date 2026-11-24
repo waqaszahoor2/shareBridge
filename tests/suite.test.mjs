@@ -513,3 +513,46 @@ test('Clearing localStorage tutorial flag makes tutorial auto-open again on land
   assert.equal(checkAutoOpen('/'), true);
 });
 
+// Test 32: Initial ICE Candidate Bundle Delay
+test('LAN signaling waits briefly for initial candidates before sending SDP', async () => {
+  const sender = await readFile(new URL('../components/SendFlow.tsx', import.meta.url), 'utf8');
+  const receiver = await readFile(new URL('../components/ReceiveFlow.tsx', import.meta.url), 'utf8');
+  assert.match(sender, /setTimeout\(resolve, 150\)/);
+  assert.match(receiver, /setTimeout\(resolve, 150\)/);
+});
+
+// Test 33: HTTP Poll Fallback on SSE Failure
+test('signal subscription retains HTTP polling fallback after stream failure', async () => {
+  const client = await readFile(new URL('../lib/webrtc/signaling.ts', import.meta.url), 'utf8');
+  const streamRoute = await readFile(new URL('../app/api/signal/stream/route.ts', import.meta.url), 'utf8');
+  assert.match(client, /fetch\('\/api\/signal\/stream'/);
+  assert.match(client, /fallback = startSignalPolling\(args, deliver, onError\)/);
+  assert.match(streamRoute, /text\/event-stream/);
+});
+
+// Test 34: Signal Stream Requires Session Authentication
+test('signal stream authenticates credentials and applies same-origin/rate-limit checks', async () => {
+  const route = await readFile(new URL('../app/api/signal/stream/route.ts', import.meta.url), 'utf8');
+  assert.match(route, /isSameOrigin\(request\)/);
+  assert.match(route, /enforceRateLimit\(request, 'signal-stream'/);
+  assert.match(route, /authenticateSignal\(code, role, token\)/);
+});
+
+// Test 35: Session Purge Requires a Valid Sender or Receiver Token
+test('purging sessions authorizes the caller and removes realtime signal history', async () => {
+  const route = await readFile(new URL('../app/api/session/release/route.ts', import.meta.url), 'utf8');
+  const purge = route.slice(route.indexOf('if (body.purge === true)'), route.indexOf('if (!existingClaimRaw)'));
+  assert.match(purge, /safeSecretEquals\(token, session\.ownerHash\)/);
+  assert.match(purge, /safeSecretEquals\(token, tokenHash\)/);
+  assert.match(purge, /if \(!authorized\)/);
+  assert.ok(purge.indexOf('if (!authorized)') < purge.indexOf("await del(`pb:session:${code}`)"));
+  assert.match(purge, /peerbridge-signal:\$\{code\}:sender/);
+  assert.match(purge, /peerbridge-signal:\$\{code\}:receiver/);
+});
+
+// Test 36: Cross-Origin Hosts Are Rejected
+test('same-origin protection rejects mismatched origin hosts', async () => {
+  const security = await readFile(new URL('../lib/server/security.ts', import.meta.url), 'utf8');
+  assert.match(security, /return originHost === host\.toLowerCase\(\)/);
+  assert.doesNotMatch(security, /allow client same-app origins/);
+});

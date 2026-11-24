@@ -32,8 +32,9 @@ export function triggerFileDownload(blob: Blob, name: string) {
   anchor.href = url;
   anchor.download = safeFileName(name);
   anchor.rel = 'noopener';
+  anchor.style.display = 'none';
   document.body.appendChild(anchor);
   anchor.click();
-  anchor.remove();
+  setTimeout(() => anchor.remove(), 1_000);
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

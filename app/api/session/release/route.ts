@@ -33,11 +33,38 @@ export async function POST(request: Request) {
     const rawSession = await get(`pb:session:${code}`);
 
     if (body.purge === true) {
+      if (!rawSession) {
+        return noStoreJson({ success: false, error: 'Session not found' }, { status: 404 });
+      }
+
+      let authorized = false;
+      try {
+        const session = JSON.parse(rawSession) as { ownerHash?: string };
+        authorized = Boolean(session.ownerHash && safeSecretEquals(token, session.ownerHash));
+      } catch {
+        return noStoreJson({ success: false, error: 'Corrupt session data' }, { status: 500 });
+      }
+
+      if (!authorized && existingClaimRaw) {
+        let tokenHash = existingClaimRaw;
+        try {
+          const claim = JSON.parse(existingClaimRaw) as { tokenHash?: string };
+          if (claim.tokenHash) tokenHash = claim.tokenHash;
+        } catch {}
+        authorized = safeSecretEquals(token, tokenHash);
+      }
+
+      if (!authorized) {
+        return noStoreJson({ success: false, error: 'Unauthorized token' }, { status: 401 });
+      }
+
       await del(`pb:session:${code}`);
       await del(`pb:receiver:${code}`);
       await del(`pb:sig:${code}:sender`);
       await del(`pb:sig:${code}:receiver`);
       await del(`pb:sig_seq:${code}`);
+      await del(`peerbridge-signal:${code}:sender`);
+      await del(`peerbridge-signal:${code}:receiver`);
       return noStoreJson({ success: true, released: true, purged: true });
     }
 

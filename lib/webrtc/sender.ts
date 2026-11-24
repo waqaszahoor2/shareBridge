@@ -15,6 +15,7 @@ export type SendFileProgressCallback = (
 export async function sendSelectedFiles(args: {
   files: { file: File; meta: FileMeta }[];
   channel: RTCDataChannel;
+  controlChannel: RTCDataChannel;
   pc: RTCPeerConnection;
   ackedRef: React.MutableRefObject<Record<string, number>>;
   savedRef: React.MutableRefObject<Record<string, boolean>>;
@@ -22,8 +23,10 @@ export async function sendSelectedFiles(args: {
   onFileStart: (fileId: string) => void;
   onProgress: SendFileProgressCallback;
 }) {
-  const { files, channel, pc, ackedRef, savedRef, isCancelled, onFileStart, onProgress } = args;
-  if (channel.readyState !== 'open') throw new Error('Transfer channel is not connected.');
+  const { files, channel, controlChannel, pc, ackedRef, savedRef, isCancelled, onFileStart, onProgress } = args;
+  if (channel.readyState !== 'open' || controlChannel.readyState !== 'open') {
+    throw new Error('Transfer channels are not connected.');
+  }
 
   const totalBytes = files.reduce((sum, item) => sum + item.file.size, 0);
   const started = performance.now();
@@ -38,7 +41,7 @@ export async function sendSelectedFiles(args: {
     ackedRef.current[item.meta.id] = 0;
     savedRef.current[item.meta.id] = false;
 
-    if (!sendControl(channel, { kind: 'file-start', file: item.meta, chunkSize })) {
+    if (!sendControl(controlChannel, { kind: 'file-start', file: item.meta, chunkSize })) {
       throw new Error('Could not start file transfer because the connection closed.');
     }
     onFileStart(item.meta.id);
@@ -77,13 +80,13 @@ export async function sendSelectedFiles(args: {
       }
     }
 
-    if (!sendControl(channel, { kind: 'file-end', fileId: item.meta.id })) {
+    if (!sendControl(controlChannel, { kind: 'file-end', fileId: item.meta.id })) {
       throw new Error('Could not finish file transfer because the connection closed.');
     }
     await waitForFileSaved(item.meta.id, savedRef.current, isCancelled);
   }
 
-  if (!sendControl(channel, { kind: 'all-complete' })) {
+  if (!sendControl(controlChannel, { kind: 'all-complete' })) {
     throw new Error('Could not confirm transfer completion because the connection closed.');
   }
 }

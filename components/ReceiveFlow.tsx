@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { safeFileName } from '@/lib/client/files';
-import { getSessionStatus, joinTransferSession, releaseTransferSession, sendSignal, startSessionStatusPolling, startSignalPolling } from '@/lib/client/signaling';
-import { createPeerConnection, getIceRoute } from '@/lib/webrtc/peerConnection';
+import { getSessionStatus, joinTransferSession, releaseTransferSession, sendSignal, startSessionStatusPolling, startSignalSubscription } from '@/lib/client/signaling';
+import { createPeerConnection, getIceRoute, prefetchIceServers } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { triggerFileDownload, validateIncomingManifest } from '@/lib/webrtc/receiver';
 import { checkBrowserCapabilities } from '@/lib/client/capability';
@@ -51,6 +51,12 @@ type ActiveFile = {
   nextAck: number;
 };
 
+type ReceivedDownload = {
+  id: string;
+  name: string;
+  blob: Blob;
+};
+
 const ACK_STEP = 512 * 1024;
 const MAX_IN_MEMORY_FILE_SIZE = 128 * 1024 * 1024;
 const STORAGE_KEY = 'peerbridge_receiver_session';
@@ -89,6 +95,7 @@ export default function ReceiveFlow() {
   const [supportsDirectory, setSupportsDirectory] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [receivedTexts, setReceivedTexts] = useState<Record<string, string>>({});
+  const [receivedDownloads, setReceivedDownloads] = useState<ReceivedDownload[]>([]);
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
   async function handleCopyText(text: string, filename: string) {
@@ -116,6 +123,7 @@ export default function ReceiveFlow() {
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
+  const controlChannelRef = useRef<RTCDataChannel | null>(null);
   const stopPollRef = useRef<null | (() => void)>(null);
   const stopStatusPollRef = useRef<null | (() => void)>(null);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
@@ -142,6 +150,10 @@ export default function ReceiveFlow() {
     stateRef.current = nextState;
     setState(nextState);
   }
+
+  useEffect(() => {
+    prefetchIceServers();
+  }, []);
 
   useEffect(() => {
     stateRef.current = state;
@@ -236,13 +248,18 @@ export default function ReceiveFlow() {
 
     stopPollRef.current?.();
     stopPollRef.current = null;
+    pendingIceRef.current = [];
     try {
       channelRef.current?.close();
+    } catch {}
+    try {
+      controlChannelRef.current?.close();
     } catch {}
     try {
       pcRef.current?.close();
     } catch {}
     channelRef.current = null;
+    controlChannelRef.current = null;
     pcRef.current = null;
   }
 
@@ -257,12 +274,15 @@ export default function ReceiveFlow() {
       }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const initialAnswer = pc.localDescription;
+      if (!initialAnswer) throw new Error('Could not prepare the WebRTC answer.');
       await sendSignal({
         code: session.code,
         role: 'receiver',
         token: session.token,
         type: 'answer',
-        payload: answer
+        payload: initialAnswer
       });
       return;
     }
@@ -358,14 +378,14 @@ export default function ReceiveFlow() {
         }
       };
 
-      pc.ondatachannel = (event) => {
-        const channel = event.channel;
-        channel.binaryType = 'arraybuffer';
-        channelRef.current = channel;
-        configureChannel(channel);
-      };
+      const controlChannel = pc.createDataChannel('peerbridge-control', { negotiated: true, id: 0, ordered: true });
+      const dataChannel = pc.createDataChannel('peerbridge-data', { negotiated: true, id: 1, ordered: true });
+      dataChannel.binaryType = 'arraybuffer';
+      controlChannelRef.current = controlChannel;
+      channelRef.current = dataChannel;
+      configureChannel(controlChannel, dataChannel);
 
-      stopPollRef.current = startSignalPolling(
+      stopPollRef.current = startSignalSubscription(
         { code: session.code, role: 'receiver', token: session.token },
         (message) => handleSignal(message, session),
         (pollError) => {
@@ -450,8 +470,15 @@ export default function ReceiveFlow() {
     }
   }
 
-  function configureChannel(channel: RTCDataChannel) {
-    channel.onopen = () => {
+  function configureChannel(controlChannel: RTCDataChannel, dataChannel: RTCDataChannel) {
+    let readySent = false;
+    const sendReady = () => {
+      if (
+        readySent ||
+        controlChannel.readyState !== 'open' ||
+        dataChannel.readyState !== 'open'
+      ) return;
+      readySent = true;
       if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
       if (stopPollRef.current) {
         stopPollRef.current();
@@ -461,33 +488,40 @@ export default function ReceiveFlow() {
       setPeerStatus('Connected — waiting for sender approval');
 
       // Send receiver-ready acknowledgement to sender immediately!
-      try {
-        sendControl(channel, { kind: 'receiver-ready', receiverId: receiverIdRef.current });
-      } catch {}
-    };
-
-    channel.onclose = () => {
-      if (stateRef.current !== 'completed' && !cancelledRef.current) {
-        failIncomingTransfer(channel, new Error('Transfer connection closed before all files were saved.'));
+      if (!sendControl(controlChannel, { kind: 'receiver-ready', receiverId: receiverIdRef.current })) {
+        failIncomingTransfer(controlChannel, dataChannel, new Error('Could not acknowledge the peer connection.'));
       }
     };
+    controlChannel.onopen = sendReady;
+    dataChannel.onopen = sendReady;
 
-    channel.onerror = () => {
+    const handleClose = () => {
       if (stateRef.current !== 'completed' && !cancelledRef.current) {
-        failIncomingTransfer(channel, new Error('The peer-to-peer data channel reported an error.'));
+        failIncomingTransfer(controlChannel, dataChannel, new Error('Transfer connection closed before all files were saved.'));
       }
     };
+    controlChannel.onclose = handleClose;
+    dataChannel.onclose = handleClose;
 
-    channel.onmessage = (event) => {
+    const handleError = () => {
+      if (stateRef.current !== 'completed' && !cancelledRef.current) {
+        failIncomingTransfer(controlChannel, dataChannel, new Error('The peer-to-peer data channel reported an error.'));
+      }
+    };
+    controlChannel.onerror = handleError;
+    dataChannel.onerror = handleError;
+
+    controlChannel.onmessage = (event) => {
       if (typeof event.data === 'string') {
-        handleControlMessage(channel, event.data);
-      } else if (event.data instanceof ArrayBuffer) {
-        enqueueBinary(channel, event.data);
+        handleControlMessage(controlChannel, dataChannel, event.data);
       }
+    };
+    dataChannel.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) enqueueBinary(controlChannel, dataChannel, event.data);
     };
   }
 
-  function handleControlMessage(channel: RTCDataChannel, raw: string) {
+  function handleControlMessage(controlChannel: RTCDataChannel, dataChannel: RTCDataChannel, raw: string) {
     if (raw.length > 100_000) return;
     try {
       const message = JSON.parse(raw) as {
@@ -523,7 +557,7 @@ export default function ReceiveFlow() {
         setPeerStatus('Preparing storage & streaming files...');
 
         // Send automatic manifest-ready response back to sender
-        if (!sendControl(channel, { kind: 'manifest-ready' })) {
+        if (!sendControl(controlChannel, { kind: 'manifest-ready' })) {
           throw new Error('Could not confirm the transfer manifest because the connection closed.');
         }
         updateState('transferring');
@@ -568,17 +602,21 @@ export default function ReceiveFlow() {
           if (storage?.saveDirectly) {
             // The selected destination folder already contains the saved file.
           } else {
+            setReceivedDownloads((files) => [
+              ...files.filter((file) => file.id !== context.meta.id),
+              { id: context.meta.id, name: context.meta.name, blob }
+            ]);
             triggerFileDownload(blob, context.meta.name);
             await storage?.cleanup?.();
           }
-          if (channel.readyState === 'open') {
-            if (!sendControl(channel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: context.received }) ||
-                !sendControl(channel, { kind: 'file-saved', fileId: context.meta.id })) {
+          if (controlChannel.readyState === 'open') {
+            if (!sendControl(controlChannel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: context.received }) ||
+                !sendControl(controlChannel, { kind: 'file-saved', fileId: context.meta.id })) {
               throw new Error('The connection closed before the saved file could be acknowledged.');
             }
           }
         }).catch((cause) => {
-          failIncomingTransfer(channel, cause instanceof Error ? cause : new Error('Could not finish saving the received file.'));
+          failIncomingTransfer(controlChannel, dataChannel, cause instanceof Error ? cause : new Error('Could not finish saving the received file.'));
         });
         return;
       }
@@ -596,11 +634,12 @@ export default function ReceiveFlow() {
           setPeerStatus('Transfer completed');
           clearSessionSnapshot(STORAGE_KEY);
           // Purge room keys from Upstash Redis immediately on completion
-          fetch('/api/session/release', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, purge: true })
-          }).catch(() => undefined);
+          void releaseTransferSession({
+            code,
+            receiverId: receiverIdRef.current,
+            resumeToken: resumeTokenRef.current,
+            purge: true
+          });
           setToast({ id: Date.now().toString(), type: 'success', text: 'All files received and saved!' });
         });
         return;
@@ -614,7 +653,8 @@ export default function ReceiveFlow() {
       }
     } catch (cause) {
       failIncomingTransfer(
-        channel,
+        controlChannel,
+        dataChannel,
         cause instanceof Error ? cause : new Error('Invalid transfer message received.')
       );
     }
@@ -661,13 +701,13 @@ export default function ReceiveFlow() {
     return null;
   }
 
-  function enqueueBinary(channel: RTCDataChannel, buffer: ArrayBuffer) {
+  function enqueueBinary(controlChannel: RTCDataChannel, dataChannel: RTCDataChannel, buffer: ArrayBuffer) {
     const context = activeRef.current;
     if (!context || stateRef.current !== 'transferring') return;
 
     context.received += buffer.byteLength;
     if (context.received > context.meta.size) {
-      failIncomingTransfer(channel, new Error(`Received more data than expected for "${context.meta.name}".`));
+      failIncomingTransfer(controlChannel, dataChannel, new Error(`Received more data than expected for "${context.meta.name}".`));
       return;
     }
     totalReceivedRef.current += buffer.byteLength;
@@ -682,12 +722,12 @@ export default function ReceiveFlow() {
       }
       if (receivedAt >= context.nextAck || receivedAt === context.meta.size) {
         context.nextAck = receivedAt + ACK_STEP;
-        if (!sendControl(channel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: receivedAt })) {
+        if (!sendControl(controlChannel, { kind: 'chunk-ack', fileId: context.meta.id, receivedBytes: receivedAt })) {
           throw new Error('The connection closed before received data could be acknowledged.');
         }
       }
     }).catch((cause) => {
-      failIncomingTransfer(channel, cause instanceof Error ? cause : new Error('Could not save received data.'));
+      failIncomingTransfer(controlChannel, dataChannel, cause instanceof Error ? cause : new Error('Could not save received data.'));
     });
 
     const now = performance.now();
@@ -702,10 +742,10 @@ export default function ReceiveFlow() {
     }
   }
 
-  function failIncomingTransfer(channel: RTCDataChannel, cause: Error) {
+  function failIncomingTransfer(controlChannel: RTCDataChannel, dataChannel: RTCDataChannel, cause: Error) {
     if (cancelledRef.current || stateRef.current === 'failed') return;
-    sendControl(channel, { kind: 'error', message: cause.message });
-    sendControl(channel, { kind: 'cancel' });
+    sendControl(controlChannel, { kind: 'error', message: cause.message });
+    sendControl(controlChannel, { kind: 'cancel' });
     cleanupConnection(true);
     setState('failed');
     setError(cause.message);
@@ -717,8 +757,8 @@ export default function ReceiveFlow() {
 
   function cancelTransfer() {
     try {
-      if (channelRef.current?.readyState === 'open') {
-        sendControl(channelRef.current, { kind: 'cancel' });
+      if (controlChannelRef.current?.readyState === 'open') {
+        sendControl(controlChannelRef.current, { kind: 'cancel' });
       }
     } catch {}
     cleanupConnection(true);
@@ -737,6 +777,7 @@ export default function ReceiveFlow() {
     setError('');
     setErrorReasons([]);
     setReceivedTexts({});
+    setReceivedDownloads([]);
     setCopiedFile(null);
   }
 
@@ -871,6 +912,24 @@ export default function ReceiveFlow() {
           )}
 
           <FileMetadata files={incoming} totalBytes={totalBytes} />
+          {receivedDownloads.length > 0 && (
+            <section className="receivedTextSection" aria-label="Received file downloads">
+              <h4 className="textSectionTitle">Files received</h4>
+              <p>Your browser was asked to download each file. If a download was blocked, use its button below.</p>
+              {receivedDownloads.map((file) => (
+                <div key={file.id} className="actionRow">
+                  <span>{file.name}</span>
+                  <button
+                    type="button"
+                    className="button buttonSmall buttonPrimary"
+                    onClick={() => triggerFileDownload(file.blob, file.name)}
+                  >
+                    Download again
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
           <button type="button" className="button buttonPrimary" onClick={resetToStart}>
             Receive Another Transfer
           </button>
