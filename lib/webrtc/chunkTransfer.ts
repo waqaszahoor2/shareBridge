@@ -9,6 +9,13 @@ export function calculateChunkSize(maxMessageSize?: number) {
   return Math.max(1, Math.min(64 * 1024, Math.floor(max / 2)));
 }
 
+export function calculateAdaptiveChunkSize(maxMessageSize: number | undefined, rttMs?: number) {
+  const maximum = calculateChunkSize(maxMessageSize);
+  if (rttMs !== undefined && rttMs > 150) return Math.min(maximum, 16 * 1024);
+  if (rttMs !== undefined && rttMs < 30) return maximum;
+  return Math.min(maximum, 32 * 1024);
+}
+
 export async function waitForReceiverReady(
   isReady: () => boolean,
   isCancelled: () => boolean,

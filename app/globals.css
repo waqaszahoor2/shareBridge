@@ -453,6 +453,10 @@ button { color: inherit; }
 .copyButton { min-height: 44px; font-size: 14px; }
 .codeExpiry { font-size: 14px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 8px; }
 .expiryWarning { color: var(--red); }
+.transferQr { display: grid; justify-items: center; gap: 8px; margin: 20px auto 0; color: var(--muted); font-size: 13px; }
+.transferQr img { display: block; padding: 8px; background: #fff; border-radius: 12px; }
+.qrScanner { display: grid; justify-items: center; gap: 10px; }
+.qrScanner video { width: min(100%, 360px); aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; background: #090b16; }
 
 .joinForm { display: grid; gap: 22px; max-width: 480px; width: 100%; margin: 0 auto; background: var(--panel-strong); padding: 36px 32px; border-radius: 24px; border: 1px solid var(--line); box-shadow: var(--shadow); }
 .inputGroup { display: grid; gap: 8px; text-align: left; }

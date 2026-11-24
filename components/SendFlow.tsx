@@ -10,6 +10,7 @@ import { sendSelectedFiles } from '@/lib/webrtc/sender';
 import { waitForReceiverReady } from '@/lib/webrtc/chunkTransfer';
 import { clearSessionSnapshot, readSessionSnapshot, writeSessionSnapshot } from '@/lib/client/sessionStorage';
 import { recordTransferHistory } from '@/lib/client/history';
+import { useWakeLock } from '@/lib/client/useWakeLock';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -67,6 +68,7 @@ export default function SendFlow() {
 
   const totalBytes = useMemo(() => selected.reduce((sum, item) => sum + item.file.size, 0), [selected]);
   const totalProgress = totalBytes ? Math.min(100, (sentBytes / totalBytes) * 100) : 0;
+  useWakeLock(state === 'transferring');
 
   function updateState(nextState: TransferState) {
     stateRef.current = nextState;
@@ -357,7 +359,13 @@ export default function SendFlow() {
             .then((route) => {
               if (pcRef.current !== pc) return;
               setPeerStatus(
-                route === 'relay' ? 'Connected via TURN relay' : route === 'direct' ? 'Direct peer connected' : 'Peer connected'
+                route === 'relay'
+                  ? 'TURN Relay · transferring'
+                  : route === 'lan'
+                    ? 'Direct LAN · ultra fast'
+                    : route === 'direct'
+                      ? 'Direct P2P · transferring'
+                      : 'Peer connected'
               );
             })
             .catch((error) => {
@@ -560,7 +568,7 @@ export default function SendFlow() {
       fetch('/api/session/release', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, purge: true })
+        body: JSON.stringify({ code, token: sessionTokenRef.current, purge: true })
       }).catch(() => undefined);
       setToast({ id: Date.now().toString(), type: 'success', text: 'All files sent successfully!' });
     } catch (cause) {

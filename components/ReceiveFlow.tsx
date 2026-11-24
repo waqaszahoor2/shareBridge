@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { safeFileName } from '@/lib/client/files';
+import { extractTransferCodeFromQr } from '@/lib/client/qr';
 import { getSessionStatus, joinTransferSession, releaseTransferSession, sendSignal, startSessionStatusPolling, startSignalSubscription } from '@/lib/client/signaling';
 import { createPeerConnection, getIceRoute, prefetchIceServers } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
@@ -10,6 +11,8 @@ import { triggerFileDownload, validateIncomingManifest } from '@/lib/webrtc/rece
 import { checkBrowserCapabilities } from '@/lib/client/capability';
 import { clearSessionSnapshot, readSessionSnapshot, writeSessionSnapshot } from '@/lib/client/sessionStorage';
 import { recordTransferHistory } from '@/lib/client/history';
+import { useWakeLock } from '@/lib/client/useWakeLock';
+import { downloadFilesAsZip } from '@/lib/webrtc/zip';
 import type { FileMeta, SignalMessage, TransferState } from '@/lib/types';
 
 import ConnectionStatus from './ConnectionStatus';
@@ -96,6 +99,7 @@ export default function ReceiveFlow() {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [receivedTexts, setReceivedTexts] = useState<Record<string, string>>({});
   const [receivedDownloads, setReceivedDownloads] = useState<ReceivedDownload[]>([]);
+  const [isZipping, setIsZipping] = useState(false);
   const [copiedFile, setCopiedFile] = useState<string | null>(null);
 
   async function handleCopyText(text: string, filename: string) {
@@ -113,11 +117,26 @@ export default function ReceiveFlow() {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
+
       setCopiedFile(filename);
       setToast({ id: Date.now().toString(), type: 'success', text: `✓ Copied "${filename}" to clipboard!` });
       setTimeout(() => setCopiedFile(null), 3000);
     } catch {
       setToast({ id: Date.now().toString(), type: 'error', text: 'Failed to copy text. Please select text manually.' });
+    }
+  }
+
+  async function downloadReceivedZip() {
+    setIsZipping(true);
+    try {
+      const created = await downloadFilesAsZip(receivedDownloads);
+      if (created) setToast({ id: Date.now().toString(), type: 'success', text: 'ZIP archive created.' });
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Could not create ZIP archive.';
+      setError(message);
+      setErrorReasons(['Choose a writable save location or retry with enough device storage.']);
+    } finally {
+      setIsZipping(false);
     }
   }
 
@@ -145,6 +164,7 @@ export default function ReceiveFlow() {
 
   const totalBytes = useMemo(() => incoming.reduce((sum, file) => sum + file.size, 0), [incoming]);
   const totalProgress = totalBytes ? Math.min(100, (totalReceived / totalBytes) * 100) : 0;
+  useWakeLock(state === 'transferring');
 
   function updateState(nextState: TransferState) {
     stateRef.current = nextState;
@@ -207,6 +227,10 @@ export default function ReceiveFlow() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     if (typeof window !== 'undefined' && caps.supported) {
+      const deepLinkCode = extractTransferCodeFromQr(window.location.href, window.location.origin);
+      if (deepLinkCode) {
+        void connectWithCode(deepLinkCode);
+      } else {
       try {
         const stored = readSessionSnapshot(STORAGE_KEY);
         if (stored) {
@@ -218,6 +242,7 @@ export default function ReceiveFlow() {
           }
         }
       } catch {}
+      }
     }
 
     return () => {
@@ -352,7 +377,11 @@ export default function ReceiveFlow() {
             .then((route) => {
               if (pcRef.current !== pc) return;
               setPeerStatus(
-                route === 'relay' ? 'Connected via TURN relay' : 'Peer connected — receiving transfer stream'
+                route === 'relay'
+                  ? 'TURN Relay · receiving'
+                  : route === 'lan'
+                    ? 'Direct LAN · ultra fast'
+                    : 'Direct P2P · receiving'
               );
             })
             .catch((error) => {
@@ -916,6 +945,11 @@ export default function ReceiveFlow() {
             <section className="receivedTextSection" aria-label="Received file downloads">
               <h4 className="textSectionTitle">Files received</h4>
               <p>Your browser was asked to download each file. If a download was blocked, use its button below.</p>
+              {receivedDownloads.length > 1 && (
+                <button type="button" className="button buttonSecondary" disabled={isZipping} onClick={() => void downloadReceivedZip()}>
+                  {isZipping ? 'Creating ZIP…' : 'Download all as ZIP'}
+                </button>
+              )}
               {receivedDownloads.map((file) => (
                 <div key={file.id} className="actionRow">
                   <span>{file.name}</span>

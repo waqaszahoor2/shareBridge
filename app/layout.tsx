@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import AppHeader from '@/components/AppHeader';
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import './globals.css';
 
 const inter = Inter({
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <div className="ambient ambientOne" />
         <div className="ambient ambientTwo" />
         <AppHeader />
+        <ServiceWorkerRegistration />
         {children}
         <footer className="siteFooter">
           <div className="shell footerInner">

@@ -2,7 +2,7 @@
 
 import type { FileMeta } from '@/lib/types';
 import { sendControl, waitForBuffer } from './dataChannel';
-import { calculateChunkSize, waitForFileSaved, waitForReceiverAck } from './chunkTransfer';
+import { calculateAdaptiveChunkSize, waitForFileSaved, waitForReceiverAck } from './chunkTransfer';
 
 export type SendFileProgressCallback = (
   fileId: string,
@@ -34,8 +34,25 @@ export async function sendSelectedFiles(args: {
   let lastUi = 0;
 
   const maxMessage = pc.sctp?.maxMessageSize || 65_536;
-  const chunkSize = calculateChunkSize(maxMessage);
+  let chunkSize = calculateAdaptiveChunkSize(maxMessage);
+  const rttTimer = setInterval(() => {
+    void pc.getStats().then((stats) => {
+      for (const report of stats.values()) {
+        const pair = report as RTCIceCandidatePairStats & { selected?: boolean };
+        const rtt = pair.currentRoundTripTime;
+        if (
+          report.type === 'candidate-pair' &&
+          (pair.selected || pair.nominated) &&
+          typeof rtt === 'number'
+        ) {
+          chunkSize = calculateAdaptiveChunkSize(maxMessage, rtt * 1000);
+          break;
+        }
+      }
+    }).catch((error) => console.warn('[WebRTC] Could not update adaptive chunk size.', error));
+  }, 2_000);
 
+  try {
   for (const item of files) {
     if (isCancelled()) throw new Error('Transfer cancelled.');
     ackedRef.current[item.meta.id] = 0;
@@ -49,7 +66,7 @@ export async function sendSelectedFiles(args: {
     let offset = 0;
     while (offset < item.file.size) {
       if (isCancelled()) throw new Error('Transfer cancelled.');
-      await waitForBuffer(channel, 4 * 1024 * 1024);
+      await waitForBuffer(channel, 1024 * 1024);
       await waitForReceiverAck(item.meta.id, offset, ackedRef.current, isCancelled);
 
       if (channel.readyState !== 'open') {
@@ -88,5 +105,8 @@ export async function sendSelectedFiles(args: {
 
   if (!sendControl(controlChannel, { kind: 'all-complete' })) {
     throw new Error('Could not confirm transfer completion because the connection closed.');
+  }
+  } finally {
+    clearInterval(rttTimer);
   }
 }

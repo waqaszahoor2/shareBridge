@@ -87,7 +87,7 @@ export function buildIceServersSync(): RTCIceServer[] {
 
 export const buildIceServers = buildIceServersSync;
 
-export async function getIceRoute(pc: RTCPeerConnection): Promise<'relay' | 'direct' | 'unknown'> {
+export async function getIceRoute(pc: RTCPeerConnection): Promise<'lan' | 'direct' | 'relay' | 'unknown'> {
   const stats = await pc.getStats();
 
   for (const report of stats.values()) {
@@ -97,9 +97,11 @@ export async function getIceRoute(pc: RTCPeerConnection): Promise<'relay' | 'dir
 
     const local = stats.get(pair.localCandidateId);
     const remote = stats.get(pair.remoteCandidateId);
-    const localIsRelay = local && 'candidateType' in local && local.candidateType === 'relay';
-    const remoteIsRelay = remote && 'candidateType' in remote && remote.candidateType === 'relay';
-    return localIsRelay || remoteIsRelay ? 'relay' : 'direct';
+    const localType = local && 'candidateType' in local ? local.candidateType : undefined;
+    const remoteType = remote && 'candidateType' in remote ? remote.candidateType : undefined;
+    if (localType === 'relay' || remoteType === 'relay') return 'relay';
+    if (localType === 'host' && remoteType === 'host') return 'lan';
+    return 'direct';
   }
 
   return 'unknown';

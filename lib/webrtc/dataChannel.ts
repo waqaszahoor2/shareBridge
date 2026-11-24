@@ -16,7 +16,7 @@ export async function waitForBuffer(channel: RTCDataChannel, highWaterMark = 102
     throw new Error('Transfer connection interrupted (data channel is closed).');
   }
   if (channel.bufferedAmount <= highWaterMark) return;
-  channel.bufferedAmountLowThreshold = Math.floor(highWaterMark / 2);
+  channel.bufferedAmountLowThreshold = Math.min(256 * 1024, Math.floor(highWaterMark / 2));
 
   await new Promise<void>((resolve, reject) => {
     const timeout = window.setTimeout(() => {

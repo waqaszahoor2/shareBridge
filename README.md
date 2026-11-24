@@ -11,6 +11,10 @@ PeerBridge is an enterprise-grade, responsive WebRTC peer-to-peer file and text 
 - **🚀 Direct Browser-to-Browser P2P**: File bytes stream directly between devices via WebRTC DataChannels with SCTP backpressure control and windowed acknowledgements.
 - **⚡ Low-Latency Signaling**: Authenticated server-sent events deliver WebRTC signaling promptly, with HTTP polling retained as a fallback for restrictive networks.
 - **📱 Cross-Device & Cross-Network Reliability**: Automatically falls back to a configured TURN relay when device networks block direct WebRTC connections, including Mobile 4G/5G to Desktop Wi-Fi.
+- **📡 Offline Hotspot Pairing**: The `/offline` flow exchanges compressed WebRTC offers and answers through QR codes or copy/paste, then transfers directly over a shared local Wi-Fi network or hotspot without signaling servers.
+- **📷 QR Pairing & Recovery**: Scan normal room codes or offline offer/answer codes where the browser supports `BarcodeDetector`; manual paste remains available.
+- **📦 ZIP Recovery**: Download completed in-memory received files together as a ZIP; browsers supporting the File System Access API can stream the archive to a chosen file.
+- **📊 Transfer Feedback**: Shows direct LAN, direct P2P, or TURN relay route and adapts chunk sizing to observed RTT; requests a screen wake lock during transfers where supported.
 - **📝 1-Click Text & Snippet Sharing**: Type or paste notes, code snippets, and links to share instantly with built-in mobile clipboard copy (`navigator.clipboard` + WebView fallback).
 - **🎨 Interactive Vertical Theme Switcher**: Glassmorphic popover dropdown supporting ☀️ **Light Mode**, 🌙 **Dark Mode**, and 💻 **System Auto Mode** with high-contrast legibility.
 - **❓ First-Time Visitor Onboarding Tutorial**: Guided interactive pop-up tutorial modal with step navigation, dot indicators, and a 1-click **Skip** option.
@@ -74,6 +78,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+For offline hotspot transfers, first load `/offline` while online so the service worker can cache its app shell. Later, connect both devices to the same Wi-Fi or hotspot, open the cached route on each device, and exchange the offer and answer QR codes (or copy/paste the pairing text). Offline receiving is currently limited to 256 MiB total per session and buffers the files in memory; use the normal online flow for larger transfers. QR camera scanning requires a secure context and browser QR detection support.
+
 ---
 
 ## 🧪 Testing & Validation
@@ -104,7 +110,7 @@ For production deployments on Vercel:
 
 STUN can establish direct connections in many cases but cannot relay traffic. Without a configured, reachable TURN service, transfers across restrictive networks cannot be guaranteed. When a connection succeeds, the app reports whether it is using the direct path or a TURN relay.
 
-Room creation and signaling require an internet connection to reach the PeerBridge app and its shared session store. Direct file bytes can use a local network once peers connect, but offline hotspot pairing without server access is not currently supported.
+Room creation and normal signaling require an internet connection to reach the PeerBridge app and its shared session store. The separate offline hotspot flow uses no signaling server or STUN/TURN after both devices have loaded the app shell; it depends on peer-to-peer host-candidate connectivity working on the local network. Browser isolation, router policies, or hotspot settings can still prevent a direct connection. WebRTC encrypts DataChannel traffic with DTLS; this release does not add a separate application-layer ECDH/AES-GCM protocol.
 
 ---
 
