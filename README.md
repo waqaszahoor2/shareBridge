@@ -1,8 +1,8 @@
-# 🌉 Share Bridge — High-Performance P2P File & Text Transfer
+# 🌉 Share Bridge — Private File & Text Sharing
 
 > **Live Application**: [https://share-bridge-roan.vercel.app/](https://share-bridge-roan.vercel.app/)
 
-Share Bridge is an enterprise-grade, responsive WebRTC peer-to-peer file and text sharing application built with Next.js 16 (App Router), TypeScript, and Upstash Redis signaling. It enables ultra-fast, direct browser-to-browser transfers without routing file content through central server storage.
+Share Bridge is a responsive, browser-based file and text sharing app built with Next.js 16, TypeScript, and WebRTC. Devices exchange files directly when a peer connection is available; the server handles short-lived room and signaling data, not file contents.
 
 ---
 
@@ -12,10 +12,11 @@ Share Bridge is an enterprise-grade, responsive WebRTC peer-to-peer file and tex
 - **⚡ Low-Latency Signaling**: Authenticated server-sent events deliver WebRTC signaling promptly, with HTTP polling retained as a fallback for restrictive networks.
 - **📱 Cross-Device & Cross-Network Reliability**: Automatically falls back to a configured TURN relay when device networks block direct WebRTC connections, including Mobile 4G/5G to Desktop Wi-Fi.
 - **📡 Offline Hotspot Pairing**: The `/offline` flow uses a 6-digit match code and manual copy/paste of compressed WebRTC offer/answer data, then transfers directly over a shared local Wi-Fi network or hotspot without signaling servers.
+- **↔️ Clear Send/Receive Navigation**: Switch between the send and receive flows directly from either transfer page.
 - **📦 ZIP Recovery**: Download completed in-memory received files together as a ZIP; browsers supporting the File System Access API can stream the archive to a chosen file.
 - **📊 Transfer Feedback**: Shows direct LAN, direct P2P, or TURN relay route and adapts chunk sizing to observed RTT; requests a screen wake lock during transfers where supported.
 - **📝 1-Click Text & Snippet Sharing**: Type or paste notes, code snippets, and links to share instantly with built-in mobile clipboard copy (`navigator.clipboard` + WebView fallback).
-- **🎨 Interactive Vertical Theme Switcher**: Glassmorphic popover dropdown supporting ☀️ **Light Mode**, 🌙 **Dark Mode**, and 💻 **System Auto Mode** with high-contrast legibility.
+- **🎨 Light, Dark & System Themes**: Choose ☀️ **Light Mode**, 🌙 **Dark Mode**, or 💻 **System Auto Mode**. The interface uses a soft blue palette, clear button outlines, and responsive layouts.
 - **❓ First-Time Visitor Onboarding Tutorial**: Guided interactive pop-up tutorial modal with step navigation, dot indicators, and a 1-click **Skip** option.
 - **📂 Progressive Disk Streaming**: Streams received files to a chosen folder or browser-managed private storage, avoiding whole-file RAM buffering for large transfers.
 - **🔒 Zero-Trust Security Architecture**:
@@ -34,7 +35,7 @@ Share Bridge is an enterprise-grade, responsive WebRTC peer-to-peer file and tex
 | **Language** | TypeScript (Strict Mode) |
 | **Protocol** | WebRTC DataChannel (SCTP, STUN/TURN) |
 | **Signaling Store** | Upstash Redis REST API (Serverless-Safe) |
-| **Styling** | Vanilla CSS Tokens & Glassmorphism |
+| **Styling** | Vanilla CSS design tokens, responsive layouts, and theme-aware surfaces |
 | **Testing** | Node.js Test Runner & TypeScript Compiler |
 
 ---
@@ -55,7 +56,7 @@ Share Bridge is an enterprise-grade, responsive WebRTC peer-to-peer file and tex
 ## ⚡ Getting Started
 
 ### Prerequisites
-- Node.js `v18.x` or higher
+- Node.js `v20.9.0` or higher
 - npm `v9.x` or higher
 
 ### Installation & Local Setup
@@ -94,6 +95,9 @@ npm run typecheck
 
 # Run Next.js production build check
 npm run build
+
+# Run repository validation checks
+npm run validate
 ```
 
 ---
