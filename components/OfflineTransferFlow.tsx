@@ -17,6 +17,7 @@ import TransferProgress from './TransferProgress';
 type OfflineRole = 'send' | 'receive';
 type OfflineStep = 'choose' | 'offer' | 'answer' | 'connected' | 'transferring' | 'completed';
 type ActiveFile = { meta: FileMeta; chunks: ArrayBuffer[]; received: number; nextAck: number };
+type ReceivedDownload = { id: string; name: string; blob: Blob };
 
 const MAX_OFFLINE_BYTES = 256 * 1024 * 1024;
 const ACK_STEP = 256 * 1024;
@@ -26,6 +27,7 @@ export default function OfflineTransferFlow() {
   const [step, setStep] = useState<OfflineStep>('choose');
   const [files, setFiles] = useState<{ file: File; meta: FileMeta }[]>([]);
   const [incoming, setIncoming] = useState<FileMeta[]>([]);
+  const [receivedDownloads, setReceivedDownloads] = useState<ReceivedDownload[]>([]);
   const [pairingCode, setPairingCode] = useState('');
   const [enteredPairingCode, setEnteredPairingCode] = useState('');
   const [pairingText, setPairingText] = useState('');
@@ -253,6 +255,10 @@ export default function OfflineTransferFlow() {
         activeFileRef.current = null;
         writeChainRef.current = writeChainRef.current.then(async () => {
           const blob = new Blob(active.chunks, { type: active.meta.type });
+          setReceivedDownloads((downloads) => [
+            ...downloads.filter((file) => file.id !== active.meta.id),
+            { id: active.meta.id, name: active.meta.name, blob }
+          ]);
           triggerFileDownload(blob, active.meta.name);
           if (!sendControl(control, { kind: 'chunk-ack', fileId: active.meta.id, receivedBytes: active.received }) ||
               !sendControl(control, { kind: 'file-saved', fileId: active.meta.id })) {
@@ -310,6 +316,7 @@ export default function OfflineTransferFlow() {
     setEnteredPairingCode('');
     setRemoteText('');
     setIncoming([]);
+    setReceivedDownloads([]);
     incomingRef.current = [];
     setFiles([]);
     setError('');
@@ -408,6 +415,24 @@ export default function OfflineTransferFlow() {
             <button className="button buttonGhost" onClick={reset}>End offline session</button>
           )}
           {role === 'receive' && incoming.length > 0 && <FileMetadata files={incoming} totalBytes={incomingBytes} />}
+          {role === 'receive' && receivedDownloads.length > 0 && (
+            <section className="receivedTextSection" aria-label="Received file downloads">
+              <h3 className="textSectionTitle">Files received</h3>
+              <p>Your browser was asked to download each file. If a download was blocked, use its button below.</p>
+              {receivedDownloads.map((file) => (
+                <div key={file.id} className="actionRow">
+                  <span>{file.name}</span>
+                  <button
+                    type="button"
+                    className="button buttonSmall buttonPrimary"
+                    onClick={() => triggerFileDownload(file.blob, file.name)}
+                  >
+                    Download again
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
         </section>
       </div>
     </main>
