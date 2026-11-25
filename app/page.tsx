@@ -59,7 +59,7 @@ export default function HomePage() {
           <div className="quickIcon3D">📡</div>
           <div>
             <strong>Offline Hotspot Transfer</strong>
-            <span>Pair with QR codes and transfer directly over the same local Wi-Fi or hotspot.</span>
+            <span>Pair with a 6-digit match code and manually exchange connection text over the same local Wi-Fi or hotspot.</span>
           </div>
           <span className="cardArrow">→</span>
         </Link>

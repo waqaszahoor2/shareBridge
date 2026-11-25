@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { safeFileName } from '@/lib/client/files';
-import { extractTransferCodeFromQr } from '@/lib/client/qr';
+import { normalizeTransferCode } from '@/lib/utils/transferCode';
 import { getSessionStatus, joinTransferSession, releaseTransferSession, sendSignal, startSessionStatusPolling, startSignalSubscription } from '@/lib/client/signaling';
 import { createPeerConnection, getIceRoute, prefetchIceServers } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
@@ -227,7 +227,9 @@ export default function ReceiveFlow() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     if (typeof window !== 'undefined' && caps.supported) {
-      const deepLinkCode = extractTransferCodeFromQr(window.location.href, window.location.origin);
+      const queryCode = new URL(window.location.href).searchParams.get('code') ?? '';
+      const normalizedQueryCode = normalizeTransferCode(queryCode);
+      const deepLinkCode = /^\d{6}$/.test(normalizedQueryCode) ? normalizedQueryCode : '';
       if (deepLinkCode) {
         void connectWithCode(deepLinkCode);
       } else {

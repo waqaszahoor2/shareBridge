@@ -2,9 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { normalizeTransferCode } from '@/lib/utils/transferCode';
-import { extractTransferCodeFromQr } from '@/lib/client/qr';
 import CodeInput from './CodeInput';
-import QrScanner from './QrScanner';
 
 interface ReceiverJoinProps {
   onJoin: (normalizedCode: string) => Promise<void> | void;
@@ -15,7 +13,6 @@ interface ReceiverJoinProps {
 export default function ReceiverJoin({ onJoin, disabled = false, loading = false }: ReceiverJoinProps) {
   const [codeDigits, setCodeDigits] = useState('');
   const [validationError, setValidationError] = useState('');
-  const [cameraError, setCameraError] = useState('');
 
   function handleCodeChange(normalizedDigits: string) {
     setCodeDigits(normalizedDigits);
@@ -55,21 +52,6 @@ export default function ReceiverJoin({ onJoin, disabled = false, loading = false
         disabled={disabled || loading}
         autoFocus
         hasError={Boolean(validationError)}
-      />
-
-      {cameraError && <p className="inputValidationAlert" role="status">{cameraError}</p>}
-      <QrScanner
-        disabled={disabled || loading}
-        onScan={(value) => {
-          const code = extractTransferCodeFromQr(value, window.location.origin);
-          if (!code) {
-            setCameraError('That QR code is not a PeerBridge transfer link.');
-            return;
-          }
-          setCameraError('');
-          setCodeDigits(code);
-          onJoin(code);
-        }}
       />
 
       {validationError && (

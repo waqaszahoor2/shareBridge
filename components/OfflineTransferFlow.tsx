@@ -8,11 +8,10 @@ import type { FileMeta } from '@/lib/types';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { sendSelectedFiles } from '@/lib/webrtc/sender';
 import { validateIncomingManifest, triggerFileDownload } from '@/lib/webrtc/receiver';
-import { decodeOfflineDescription, encodeOfflineDescription, waitForIceGathering } from '@/lib/webrtc/offlinePairing';
+import { createOfflinePairingCode, decodeOfflineDescription, encodeOfflineDescription, waitForIceGathering } from '@/lib/webrtc/offlinePairing';
+import CodeInput from './CodeInput';
 import FileMetadata from './FileMetadata';
 import FileUploader from './FileUploader';
-import QrCodeView from './QrCodeView';
-import QrScanner from './QrScanner';
 import TransferProgress from './TransferProgress';
 
 type OfflineRole = 'send' | 'receive';
@@ -27,6 +26,8 @@ export default function OfflineTransferFlow() {
   const [step, setStep] = useState<OfflineStep>('choose');
   const [files, setFiles] = useState<{ file: File; meta: FileMeta }[]>([]);
   const [incoming, setIncoming] = useState<FileMeta[]>([]);
+  const [pairingCode, setPairingCode] = useState('');
+  const [enteredPairingCode, setEnteredPairingCode] = useState('');
   const [pairingText, setPairingText] = useState('');
   const [remoteText, setRemoteText] = useState('');
   const [peerReady, setPeerReady] = useState(false);
@@ -74,6 +75,16 @@ export default function OfflineTransferFlow() {
     setError('');
   }
 
+  async function copyConnectionText(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatus('Copied. Send this text to the other device.');
+    } catch (cause) {
+      console.warn('[Offline] Could not copy pairing text.', cause);
+      setError('Clipboard access is unavailable. Select and copy the text manually.');
+    }
+  }
+
   function configureChannels(pc: RTCPeerConnection) {
     const control = pc.createDataChannel('peerbridge-control', { negotiated: true, id: 0, ordered: true });
     const data = pc.createDataChannel('peerbridge-data', { negotiated: true, id: 1, ordered: true });
@@ -119,16 +130,18 @@ export default function OfflineTransferFlow() {
     try {
       setError('');
       if (!files.length) throw new Error('Select at least one file before creating an offer.');
+      const code = createOfflinePairingCode();
       const pc = await createLocalPeerConnection();
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       setStatus('Discovering devices on the local network…');
       await waitForIceGathering(pc);
       if (!pc.localDescription) throw new Error('Could not create the local network offer.');
-      setPairingText(encodeOfflineDescription(pc.localDescription));
+      setPairingCode(code);
+      setPairingText(encodeOfflineDescription(pc.localDescription, code));
       setRemoteText('');
       setStep('offer');
-      setStatus('Show this offer QR to the receiving device, then scan or paste its answer.');
+      setStatus('Share the 6-digit code and offer text with the receiving device.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not create offline offer.');
       cleanup();
@@ -138,8 +151,9 @@ export default function OfflineTransferFlow() {
   async function acceptOffer(raw: string) {
     try {
       setError('');
-      const offer = decodeOfflineDescription(raw);
-      if (offer.type !== 'offer') throw new Error('The scanned code is not an offer.');
+      const { pairingCode: offerCode, description: offer } = decodeOfflineDescription(raw, enteredPairingCode);
+      if (offer.type !== 'offer') throw new Error('The connection data is not an offer.');
+      setPairingCode(offerCode);
       const pc = await createLocalPeerConnection();
       await pc.setRemoteDescription(offer);
       const answer = await pc.createAnswer();
@@ -147,9 +161,9 @@ export default function OfflineTransferFlow() {
       setStatus('Preparing answer using local Wi-Fi only…');
       await waitForIceGathering(pc);
       if (!pc.localDescription) throw new Error('Could not create the local network answer.');
-      setPairingText(encodeOfflineDescription(pc.localDescription));
+      setPairingText(encodeOfflineDescription(pc.localDescription, offerCode));
       setStep('answer');
-      setStatus('Show this answer QR to the sender, or copy and send the code.');
+      setStatus('Share the answer text with the sender. The 6-digit code must match.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not accept offline offer.');
       cleanup();
@@ -158,8 +172,8 @@ export default function OfflineTransferFlow() {
 
   async function acceptAnswer(raw: string) {
     try {
-      const answer = decodeOfflineDescription(raw);
-      if (answer.type !== 'answer' || !pcRef.current) throw new Error('The scanned code is not an answer.');
+      const { pairingCode: answerCode, description: answer } = decodeOfflineDescription(raw, pairingCode);
+      if (answer.type !== 'answer' || !pcRef.current) throw new Error('The connection data is not an answer.');
       await pcRef.current.setRemoteDescription(answer);
       setRemoteText('');
       setStatus('Answer accepted. Establishing direct local connection…');
@@ -292,6 +306,8 @@ export default function OfflineTransferFlow() {
     cleanup();
     setStep('choose');
     setPairingText('');
+    setPairingCode('');
+    setEnteredPairingCode('');
     setRemoteText('');
     setIncoming([]);
     incomingRef.current = [];
@@ -309,7 +325,7 @@ export default function OfflineTransferFlow() {
         <div className="flowHeader">
           <Link href="/" className="backLink">← Back</Link>
           <h1>Offline Hotspot Transfer</h1>
-          <p className="subtitle">Pair over local Wi-Fi or a hotspot using QR codes. No room server, internet, STUN, or TURN is used.</p>
+          <p className="subtitle">Pair over local Wi-Fi or a hotspot without internet. Exchange the 6-digit code and connection text manually.</p>
         </div>
 
         <section className="receiverStepBox">
@@ -330,10 +346,12 @@ export default function OfflineTransferFlow() {
                 </>
               ) : (
                 <>
-                  <p>Scan the sender’s offer QR or paste its code below.</p>
-                  <QrScanner onScan={(value) => setPairingText(value)} />
-                  <textarea className="receivedTextArea" aria-label="Offline offer code" value={pairingText} onChange={(event) => setPairingText(event.target.value)} rows={5} />
-                  <button className="button buttonPrimary" disabled={!pairingText.trim()} onClick={() => void acceptOffer(pairingText.trim())}>Accept offer</button>
+                  <p>Enter the sender’s 6-digit code and paste the offer text. The short code alone cannot establish an offline connection.</p>
+                  <label className="inputGroup">6-digit pairing code
+                    <CodeInput value={enteredPairingCode} onChange={(digits) => setEnteredPairingCode(digits)} />
+                  </label>
+                  <textarea className="receivedTextArea" aria-label="Offline offer connection text" value={pairingText} onChange={(event) => setPairingText(event.target.value)} rows={5} />
+                  <button className="button buttonPrimary" disabled={enteredPairingCode.length !== 6 || !pairingText.trim()} onClick={() => void acceptOffer(pairingText.trim())}>Accept offer</button>
                 </>
               )}
             </>
@@ -341,10 +359,12 @@ export default function OfflineTransferFlow() {
 
           {step === 'offer' && role === 'send' && (
             <>
-              <QrCodeView value={pairingText} label="Receiver: scan this offer QR" />
-              <textarea className="receivedTextArea" readOnly aria-label="Offline offer code" value={pairingText} rows={5} />
-              <QrScanner onScan={(value) => void acceptAnswer(value)} />
-              <label className="inputGroup">Paste answer code
+              <p className="codeDigits" aria-label={`Offline pairing code ${pairingCode}`}>{pairingCode.slice(0, 3)}-{pairingCode.slice(3)}</p>
+              <p>Tell the receiver this 6-digit code, then copy and send the offer text below.</p>
+              <button type="button" className="button buttonSecondary" onClick={() => void copyConnectionText(pairingCode)}>Copy 6-digit code</button>
+              <textarea className="receivedTextArea" readOnly aria-label="Offline offer connection text" value={pairingText} rows={5} />
+              <button type="button" className="button buttonSecondary" onClick={() => void copyConnectionText(pairingText)}>Copy offer text</button>
+              <label className="inputGroup">Paste answer connection text
                 <textarea className="receivedTextArea" value={remoteText} onChange={(event) => setRemoteText(event.target.value)} rows={3} />
               </label>
               <button className="button buttonPrimary" disabled={!remoteText.trim()} onClick={() => void acceptAnswer(remoteText.trim())}>Apply answer</button>
@@ -353,8 +373,10 @@ export default function OfflineTransferFlow() {
 
           {step === 'answer' && role === 'receive' && (
             <>
-              <QrCodeView value={pairingText} label="Sender: scan this answer QR" />
-              <textarea className="receivedTextArea" readOnly aria-label="Offline answer code" value={pairingText} rows={5} />
+              <p className="codeDigits" aria-label={`Offline pairing code ${pairingCode}`}>{pairingCode.slice(0, 3)}-{pairingCode.slice(3)}</p>
+              <p>Send this answer text to the sender. Confirm the 6-digit code matches.</p>
+              <textarea className="receivedTextArea" readOnly aria-label="Offline answer connection text" value={pairingText} rows={5} />
+              <button type="button" className="button buttonSecondary" onClick={() => void copyConnectionText(pairingText)}>Copy answer text</button>
               <p>Once both data channels open, the sender will begin the transfer.</p>
             </>
           )}

@@ -12,23 +12,37 @@ function toBase64Url(bytes: Uint8Array) {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function encodeOfflineDescription(description: RTCSessionDescriptionInit) {
+export function createOfflinePairingCode() {
+  const random = new Uint32Array(1);
+  crypto.getRandomValues(random);
+  return String(100_000 + (random[0] % 900_000));
+}
+
+export function encodeOfflineDescription(description: RTCSessionDescriptionInit, pairingCode: string) {
+  if (!/^\d{6}$/.test(pairingCode)) {
+    throw new Error('Offline pairing requires a valid 6-digit code.');
+  }
   if (!description.type || !description.sdp || description.sdp.length > MAX_DESCRIPTION_BYTES) {
     throw new Error('The WebRTC description is invalid or too large to share safely.');
   }
   const json = new TextEncoder().encode(JSON.stringify(description));
   const compressed = deflateSync(json);
   if (compressed.byteLength > MAX_COMPRESSED_BYTES) {
-    throw new Error('This network produced a QR payload that is too large. Copy the text code instead.');
+    throw new Error('This network produced connection data that is too large to share.');
   }
-  return PREFIX + toBase64Url(compressed);
+  return `${PREFIX}${pairingCode}:${toBase64Url(compressed)}`;
 }
 
-export function decodeOfflineDescription(encoded: string): RTCSessionDescriptionInit {
-  if (!encoded.startsWith(PREFIX) || encoded.length > MAX_COMPRESSED_BYTES * 2) {
-    throw new Error('This is not a valid PeerBridge offline pairing code.');
+export function decodeOfflineDescription(encoded: string, expectedPairingCode: string): { pairingCode: string; description: RTCSessionDescriptionInit } {
+  const match = /^PB1:(\d{6}):([A-Za-z0-9_-]+)$/.exec(encoded.trim());
+  if (!match || encoded.length > MAX_COMPRESSED_BYTES * 2) {
+    throw new Error('This is not valid PeerBridge offline connection data.');
   }
-  const base64 = encoded.slice(PREFIX.length).replace(/-/g, '+').replace(/_/g, '/');
+  const [, pairingCode, payload] = match;
+  if (!/^\d{6}$/.test(expectedPairingCode) || pairingCode !== expectedPairingCode) {
+    throw new Error('The 6-digit code does not match this connection data.');
+  }
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
   let bytes: Uint8Array;
   try {
     const binary = atob(base64);
@@ -58,7 +72,7 @@ export function decodeOfflineDescription(encoded: string): RTCSessionDescription
   ) {
     throw new Error('The offline pairing code does not contain a valid WebRTC offer or answer.');
   }
-  return parsed as RTCSessionDescriptionInit;
+  return { pairingCode, description: parsed as RTCSessionDescriptionInit };
 }
 
 export function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 15_000) {

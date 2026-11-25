@@ -453,8 +453,6 @@ button { color: inherit; }
 .copyButton { min-height: 44px; font-size: 14px; }
 .codeExpiry { font-size: 14px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 8px; }
 .expiryWarning { color: var(--red); }
-.transferQr { display: grid; justify-items: center; gap: 8px; margin: 20px auto 0; color: var(--muted); font-size: 13px; }
-.transferQr img { display: block; padding: 8px; background: #fff; border-radius: 12px; }
 .qrScanner { display: grid; justify-items: center; gap: 10px; }
 .qrScanner video { width: min(100%, 360px); aspect-ratio: 4 / 3; object-fit: cover; border-radius: 14px; background: #090b16; }
 
@@ -530,7 +528,7 @@ button { color: inherit; }
 }
 
 .backLink {
-  align-self: center;
+  align-self: flex-start;
   font-size: 13.5px;
   font-weight: 650;
   color: var(--muted);
