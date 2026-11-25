@@ -1,7 +1,7 @@
 'use client';
 
-export const ACK_WINDOW = 2 * 1024 * 1024; // 2MB ACK window (safe for mobile socket buffers)
-export const ACK_STEP = 256 * 1024; // 256KB ACK step
+export const ACK_WINDOW = 8 * 1024 * 1024;
+export const ACK_STEP = 1024 * 1024;
 
 export function calculateChunkSize(maxMessageSize?: number) {
   // A zero SCTP limit means unlimited; keep a conservative cap for browser implementations.
@@ -11,9 +11,8 @@ export function calculateChunkSize(maxMessageSize?: number) {
 
 export function calculateAdaptiveChunkSize(maxMessageSize: number | undefined, rttMs?: number) {
   const maximum = calculateChunkSize(maxMessageSize);
-  if (rttMs !== undefined && rttMs > 150) return Math.min(maximum, 16 * 1024);
-  if (rttMs !== undefined && rttMs < 30) return maximum;
-  return Math.min(maximum, 32 * 1024);
+  if (rttMs !== undefined && rttMs > 150) return Math.min(maximum, 32 * 1024);
+  return maximum;
 }
 
 export async function waitForReceiverReady(
@@ -40,8 +39,8 @@ export async function waitForReceiverAck(
   const started = Date.now();
   while (sent - (ackedMap[fileId] ?? 0) > ACK_WINDOW) {
     if (isCancelled()) throw new Error('Transfer cancelled by user.');
-    if (Date.now() - started > 120_000) {
-      throw new Error('Receiver stopped acknowledging data chunks (120s inactivity timeout).');
+    if (Date.now() - started > 5 * 60_000) {
+      throw new Error('Receiver stopped acknowledging data chunks (5-minute inactivity timeout).');
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }

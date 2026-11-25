@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { safeFileName } from '@/lib/client/files';
 import { normalizeTransferCode } from '@/lib/utils/transferCode';
 import { getSessionStatus, joinTransferSession, releaseTransferSession, sendSignal, startSessionStatusPolling, startSignalSubscription } from '@/lib/client/signaling';
+import { ACK_STEP } from '@/lib/webrtc/chunkTransfer';
 import { createPeerConnection, getIceRoute, prefetchIceServers } from '@/lib/webrtc/peerConnection';
 import { sendControl } from '@/lib/webrtc/dataChannel';
 import { triggerFileDownload, validateIncomingManifest } from '@/lib/webrtc/receiver';
@@ -60,7 +61,6 @@ type ReceivedDownload = {
   blob: Blob;
 };
 
-const ACK_STEP = 512 * 1024;
 const MAX_IN_MEMORY_FILE_SIZE = 128 * 1024 * 1024;
 const STORAGE_KEY = 'peerbridge_receiver_session';
 

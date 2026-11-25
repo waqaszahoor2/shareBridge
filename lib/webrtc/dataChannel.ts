@@ -22,7 +22,7 @@ export async function waitForBuffer(channel: RTCDataChannel, highWaterMark = 102
     const timeout = window.setTimeout(() => {
       cleanup();
       reject(new Error('Network buffer did not drain in time.'));
-    }, 30_000);
+    }, 5 * 60_000);
 
     const onLow = () => {
       cleanup();
