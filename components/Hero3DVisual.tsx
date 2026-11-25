@@ -28,8 +28,33 @@ export default function Hero3DVisual() {
 
     // 3D Nodes representation
     const nodeCount = 28;
-    const nodes: { x: number; y: number; z: number; vx: number; vy: number; vz: number; radius: number; color: string }[] = [];
-    const colors = ['#7960ff', '#4d6cff', '#00f2fe', '#8a2be2', '#3a86ff'];
+    const nodes: { x: number; y: number; z: number; vx: number; vy: number; vz: number; radius: number }[] = [];
+    const readPalette = () => {
+      const styles = getComputedStyle(document.documentElement);
+      const primary = styles.getPropertyValue('--hero-accent').trim();
+      const secondary = styles.getPropertyValue('--hero-accent-soft').trim();
+      const active = styles.getPropertyValue('--status-active').trim();
+      const rgb = (color: string) => {
+        const hex = color.replace('#', '');
+        const value = Number.parseInt(hex, 16);
+        return `${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}`;
+      };
+      return {
+        nodes: [primary, secondary, active, secondary, primary],
+        line: rgb(primary),
+        core: rgb(active)
+      };
+    };
+    let palette = readPalette();
+    const themeObserver = new MutationObserver(() => {
+      palette = readPalette();
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleColorSchemeChange = () => {
+      if (!document.documentElement.hasAttribute('data-theme')) palette = readPalette();
+    };
+    colorScheme.addEventListener('change', handleColorSchemeChange);
 
     for (let i = 0; i < nodeCount; i++) {
       const theta = Math.random() * Math.PI * 2;
@@ -43,8 +68,7 @@ export default function Hero3DVisual() {
         vx: (Math.random() - 0.5) * 0.008,
         vy: (Math.random() - 0.5) * 0.008,
         vz: (Math.random() - 0.5) * 0.008,
-        radius: Math.random() * 3.5 + 2,
-        color: colors[i % colors.length]
+        radius: Math.random() * 3.5 + 2
       });
     }
 
@@ -69,7 +93,7 @@ export default function Hero3DVisual() {
       const sinY = Math.sin(angleY);
 
       // Projected points
-      const projected: { px: number; py: number; scale: number; color: string; radius: number; z: number }[] = [];
+      const projected: { px: number; py: number; scale: number; radius: number; z: number }[] = [];
 
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i];
@@ -85,7 +109,7 @@ export default function Hero3DVisual() {
         const px = cx + x2 * scale;
         const py = cy + y1 * scale;
 
-        projected.push({ px, py, scale, color: n.color, radius: n.radius, z: z2 });
+        projected.push({ px, py, scale, radius: n.radius, z: z2 });
       }
 
       // Draw 3D Connection Lines
@@ -102,7 +126,7 @@ export default function Hero3DVisual() {
             ctx.beginPath();
             ctx.moveTo(p1.px, p1.py);
             ctx.lineTo(p2.px, p2.py);
-            ctx.strokeStyle = `rgba(121, 96, 255, ${alpha})`;
+            ctx.strokeStyle = `rgba(${palette.line}, ${alpha})`;
             ctx.lineWidth = 1.2 * p1.scale;
             ctx.stroke();
           }
@@ -111,8 +135,8 @@ export default function Hero3DVisual() {
 
       // Draw Center Glowing 3D Core
       const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 90);
-      grad.addColorStop(0, 'rgba(121, 96, 255, 0.45)');
-      grad.addColorStop(0.5, 'rgba(77, 108, 255, 0.15)');
+      grad.addColorStop(0, `rgba(${palette.core}, 0.2)`);
+      grad.addColorStop(0.5, `rgba(${palette.line}, 0.08)`);
       grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -121,11 +145,12 @@ export default function Hero3DVisual() {
 
       // Draw 3D Nodes
       projected.sort((a, b) => b.z - a.z);
-      for (const p of projected) {
+      for (let i = 0; i < projected.length; i++) {
+        const p = projected[i];
         ctx.beginPath();
         ctx.arc(p.px, p.py, p.radius * p.scale, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.shadowColor = p.color;
+        ctx.fillStyle = palette.nodes[i % palette.nodes.length];
+        ctx.shadowColor = palette.nodes[i % palette.nodes.length];
         ctx.shadowBlur = 10 * p.scale;
         ctx.fill();
         ctx.shadowBlur = 0;
@@ -139,6 +164,8 @@ export default function Hero3DVisual() {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
+      themeObserver.disconnect();
+      colorScheme.removeEventListener('change', handleColorSchemeChange);
     };
   }, []);
 

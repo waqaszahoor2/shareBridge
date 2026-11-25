@@ -1,14 +1,14 @@
 :root {
-  --bg-canvas: #FAFAFA;
+  --bg-canvas: #F3F7FF;
   --bg-surface: #FFFFFF;
-  --bg-subtle: #F4F4F5;
-  --border-hairline: #E4E4E7;
-  --border-hover: #A1A1AA;
-  --text-primary: #09090B;
-  --text-secondary: #52525B;
-  --accent-primary: #09090B;
-  --accent-fg: #FAFAFA;
-  --status-active: #16A34A;
+  --bg-subtle: #EAF1FF;
+  --border-hairline: #DCE6F8;
+  --border-hover: #A7BDE5;
+  --text-primary: #101B3A;
+  --text-secondary: #526384;
+  --accent-primary: #075BEE;
+  --accent-fg: #FFFFFF;
+  --status-active: #13A887;
   --accent-signal: var(--accent-primary);
   --bg: var(--bg-canvas);
   --panel: var(--bg-surface);
@@ -26,30 +26,30 @@
 }
 
 html[data-theme="dark"] {
-  --bg-canvas: #09090B;
-  --bg-surface: #111113;
-  --bg-subtle: #18181B;
-  --border-hairline: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.18);
-  --text-primary: #FAFAFA;
-  --text-secondary: #A1A1AA;
-  --accent-primary: #FAFAFA;
-  --accent-fg: #09090B;
-  --status-active: #22C55E;
+  --bg-canvas: #0B1122;
+  --bg-surface: #111A30;
+  --bg-subtle: #17233D;
+  --border-hairline: rgba(160, 185, 255, 0.15);
+  --border-hover: rgba(160, 185, 255, 0.32);
+  --text-primary: #F3F6FF;
+  --text-secondary: #A9B7D2;
+  --accent-primary: #4F8FFF;
+  --accent-fg: #FFFFFF;
+  --status-active: #36D6B0;
 }
 
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) {
-    --bg-canvas: #09090B;
-    --bg-surface: #111113;
-    --bg-subtle: #18181B;
-    --border-hairline: rgba(255, 255, 255, 0.08);
-    --border-hover: rgba(255, 255, 255, 0.18);
-    --text-primary: #FAFAFA;
-    --text-secondary: #A1A1AA;
-    --accent-primary: #FAFAFA;
-    --accent-fg: #09090B;
-    --status-active: #22C55E;
+    --bg-canvas: #0B1122;
+    --bg-surface: #111A30;
+    --bg-subtle: #17233D;
+    --border-hairline: rgba(160, 185, 255, 0.15);
+    --border-hover: rgba(160, 185, 255, 0.32);
+    --text-primary: #F3F6FF;
+    --text-secondary: #A9B7D2;
+    --accent-primary: #4F8FFF;
+    --accent-fg: #FFFFFF;
+    --status-active: #36D6B0;
   }
 }
 
@@ -3151,4 +3151,852 @@ select:focus {
   .landingPage3D .hero { border-radius: 8px; }
   .heroVisual3D { min-height: 280px; }
   .landingPage3D .heroDevice3D { width: 110px; height: 195px; }
+}
+
+.brandMark {
+  border-radius: 8px;
+  color: var(--accent-fg);
+}
+
+.brandMark svg {
+  height: 22px;
+  width: 22px;
+}
+
+.button,
+.buttonGlow,
+.buttonPrimary,
+.buttonSecondary,
+.buttonGhost {
+  min-height: 48px;
+  padding: 12px 22px;
+}
+
+.buttonSmall {
+  min-height: 40px;
+  padding: 9px 16px;
+}
+
+.landingPage3D .heroVisual3D {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 420px;
+  overflow: visible;
+  border: 0;
+  isolation: isolate;
+  perspective: none;
+}
+
+.landingPage3D .hero3DCanvas {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  opacity: .9;
+}
+
+.landingPage3D .ring3D {
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  display: block;
+  border: 1px dashed color-mix(in srgb, var(--text-secondary) 38%, transparent);
+}
+
+.landingPage3D .ringOne {
+  width: 270px;
+  height: 270px;
+  margin: -135px 0 0 -135px;
+}
+
+.landingPage3D .ringTwo {
+  width: 360px;
+  height: 360px;
+  margin: -180px 0 0 -180px;
+}
+
+.landingPage3D .heroDevice3D {
+  position: absolute;
+  z-index: 2;
+  width: 142px;
+  height: 260px;
+  padding: 7px;
+  border: 1px solid var(--border-hover);
+  border-radius: 18px;
+  background: var(--bg-surface);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+
+.landingPage3D .heroDeviceSender {
+  top: 25%;
+  left: 18%;
+  animation: shareBridgeFloat 5s ease-in-out infinite;
+  transform: perspective(800px) rotateY(12deg) rotateZ(-5deg);
+}
+
+.landingPage3D .heroDeviceReceiver {
+  top: 17%;
+  right: 17%;
+  animation: shareBridgeFloat 5s ease-in-out -2.5s infinite;
+  transform: perspective(800px) rotateY(-12deg) rotateZ(5deg);
+}
+
+.landingPage3D .heroDeviceScreen {
+  background: var(--bg-surface);
+}
+
+.landingPage3D .heroDeviceLogo,
+.landingPage3D .heroDeviceFile > span,
+.landingPage3D .heroDeviceAction,
+.landingPage3D .heroDeviceProgress i {
+  background: var(--accent-primary);
+  color: var(--accent-fg);
+}
+
+.landingPage3D .heroDeviceProgress {
+  background: var(--bg-subtle);
+}
+
+.landingPage3D .glassCard3D {
+  z-index: 3;
+  display: flex;
+  border: 1px solid var(--border-hairline);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  animation: shareBridgeFloat 6s ease-in-out infinite;
+}
+
+.landingPage3D .gc1 { top: 10%; left: 0; }
+.landingPage3D .gc2 { right: 0; bottom: 11%; animation-delay: -3s; }
+.landingPage3D .gc3 { top: 65%; left: 2%; animation-delay: -1.5s; }
+
+.landingPage3D .gcIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: var(--bg-subtle);
+}
+
+.landingPage3D .gcText strong { color: var(--text-primary); }
+.landingPage3D .gcText span { color: var(--text-secondary); }
+
+@keyframes shareBridgeFloat {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+
+@media (max-width: 639px) {
+  .landingPage3D .heroVisual3D {
+    height: clamp(230px, 66vw, 290px);
+    overflow: hidden;
+  }
+
+  .landingPage3D .ringOne {
+    width: 190px;
+    height: 190px;
+    margin: -95px 0 0 -95px;
+  }
+
+  .landingPage3D .ringTwo {
+    width: 250px;
+    height: 250px;
+    margin: -125px 0 0 -125px;
+  }
+
+  .landingPage3D .heroDevice3D {
+    width: 102px;
+    height: 184px;
+  }
+
+  .landingPage3D .heroDeviceSender { top: 20%; left: 19%; }
+  .landingPage3D .heroDeviceReceiver { top: 13%; right: 18%; }
+  .landingPage3D .glassCard3D { display: none; }
+
+  .landingPage3D .heroActions .button {
+    min-height: 48px;
+    padding: 12px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landingPage3D .ring3D,
+  .landingPage3D .heroDevice3D,
+  .landingPage3D .glassCard3D {
+    animation: none;
+  }
+}
+
+:root {
+  --hero-accent: #075BEE;
+  --hero-accent-soft: #37B8CC;
+}
+
+html[data-theme="dark"] {
+  --hero-accent: #70A7FF;
+  --hero-accent-soft: #48D1C4;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --hero-accent: #70A7FF;
+    --hero-accent-soft: #48D1C4;
+  }
+}
+
+.siteHeaderLanding {
+  position: relative;
+  z-index: 20;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+.siteHeaderLanding .headerInner {
+  width: min(1440px, calc(100% - 64px));
+  height: 64px;
+  margin: 10px auto 0;
+  padding: 0 22px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+}
+
+.siteHeaderLanding .brand {
+  flex: 0 0 auto;
+  gap: 9px;
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+}
+
+.siteHeaderLanding .brandMark {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--hero-accent);
+  color: #fff;
+}
+
+.siteHeaderLanding .brandMark svg {
+  width: 25px;
+  height: 25px;
+}
+
+.siteHeaderLanding .headerNav {
+  gap: clamp(8px, 1.25vw, 20px);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.siteHeaderLanding .headerNav a,
+.siteHeaderLanding .navHelpBtn {
+  border-radius: 999px;
+  padding: 9px 13px;
+  white-space: nowrap;
+}
+
+.siteHeaderLanding .headerNav a[aria-current="page"] {
+  background: var(--hero-accent);
+  color: #fff;
+}
+
+.siteHeaderLanding .headerNav a:hover,
+.siteHeaderLanding .navHelpBtn:hover {
+  background: color-mix(in srgb, var(--hero-accent) 9%, var(--bg-surface));
+  color: var(--hero-accent);
+}
+
+.siteHeaderLanding .headerNav a[aria-current="page"]:hover {
+  background: var(--hero-accent);
+  color: #fff;
+}
+
+.siteHeaderLanding .themeDropdownTrigger {
+  min-height: 40px;
+  border-radius: 999px;
+}
+
+.siteHeaderLanding .desktopSendBtn {
+  min-height: 42px;
+  padding: 10px 18px;
+  border: 1px solid var(--hero-accent);
+  border-radius: 999px;
+  background: var(--hero-accent);
+  color: #fff;
+}
+
+.siteHeaderLanding .desktopSendBtn:hover,
+.landingPage3D .heroActions .buttonGlow:hover {
+  border-color: color-mix(in srgb, var(--hero-accent) 82%, #000);
+  background: color-mix(in srgb, var(--hero-accent) 82%, #000);
+  color: #fff;
+}
+
+.landingPage3D .hero {
+  width: min(1440px, 100%);
+  min-height: 540px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, .92fr);
+  gap: 20px;
+  margin: 0 auto;
+  padding: 40px clamp(32px, 5.7vw, 82px) 36px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background-color: var(--bg-canvas);
+  background-image:
+    radial-gradient(ellipse at 87% 48%, color-mix(in srgb, var(--hero-accent) 13%, transparent), transparent 43%),
+    radial-gradient(ellipse at 13% 10%, color-mix(in srgb, var(--hero-accent) 7%, transparent), transparent 46%),
+    linear-gradient(135deg, var(--bg-canvas), var(--bg-surface) 56%, color-mix(in srgb, var(--hero-accent-soft) 8%, var(--bg-canvas))) !important;
+}
+
+.landingPage3D .hero::before {
+  position: absolute;
+  z-index: -1;
+  right: -9%;
+  bottom: -45%;
+  width: 68%;
+  aspect-ratio: 1.8;
+  border-radius: 50%;
+  background-image: linear-gradient(140deg, color-mix(in srgb, var(--hero-accent) 12%, transparent), color-mix(in srgb, var(--hero-accent-soft) 18%, transparent)) !important;
+  content: "";
+  transform: rotate(-12deg);
+}
+
+.landingPage3D .heroCopy {
+  max-width: 700px;
+}
+
+.landingPage3D .eyebrow {
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-active) 12%, var(--bg-surface));
+  color: color-mix(in srgb, var(--status-active) 72%, var(--text-primary));
+  font-size: 12px;
+  letter-spacing: 0;
+  padding: 8px 13px;
+}
+
+.landingPage3D .dot {
+  width: 8px;
+  height: 8px;
+  background: var(--status-active);
+  box-shadow: none;
+}
+
+.landingPage3D .hero h1 {
+  max-width: 730px;
+  margin: 18px 0 14px;
+  color: var(--text-primary);
+  font-size: clamp(42px, 3.8vw, 54px);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+}
+
+.landingPage3D .hero h1 .heroAccentWord {
+  display: inline;
+  color: var(--hero-accent);
+}
+
+.landingPage3D .heroLead {
+  max-width: 600px;
+  color: color-mix(in srgb, var(--text-secondary) 90%, var(--hero-accent));
+  font-size: clamp(15px, 1.35vw, 18px);
+  line-height: 1.55;
+}
+
+.landingPage3D .heroActions {
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.landingPage3D .heroActions .button {
+  min-height: 48px;
+  padding: 13px 22px;
+  border-radius: 999px;
+}
+
+.landingPage3D .heroActions .buttonGlow {
+  border-color: var(--hero-accent);
+  background: var(--hero-accent);
+  color: #fff;
+}
+
+.landingPage3D .heroActions .buttonGhost {
+  border-color: color-mix(in srgb, var(--hero-accent) 24%, var(--border-hairline));
+  background: color-mix(in srgb, var(--bg-surface) 75%, transparent);
+  color: var(--text-primary);
+}
+
+.landingPage3D .heroActions .buttonGhost > span {
+  color: var(--hero-accent);
+}
+
+.landingPage3D .trustRow {
+  gap: 12px 18px;
+  margin-top: 23px;
+  color: var(--text-primary);
+}
+
+.landingPage3D .trustRow span::first-letter {
+  color: var(--hero-accent);
+}
+
+.landingPage3D .heroVisual3D {
+  max-width: 640px;
+  height: 440px;
+}
+
+.landingPage3D .heroDevice3D {
+  width: 150px;
+  height: 274px;
+}
+
+.landingPage3D .heroDeviceScreen {
+  border-color: color-mix(in srgb, var(--hero-accent) 15%, var(--border-hairline));
+}
+
+.landingPage3D .heroDeviceLogo,
+.landingPage3D .heroDeviceFile > span,
+.landingPage3D .heroDeviceAction,
+.landingPage3D .heroDeviceProgress i {
+  background: var(--hero-accent);
+}
+
+.landingPage3D .heroDeviceAction,
+.landingPage3D .heroDeviceFile > span {
+  color: #fff;
+}
+
+.landingPage3D .heroDeviceFile > i {
+  background: color-mix(in srgb, var(--hero-accent) 18%, var(--bg-subtle));
+}
+
+.landingPage3D .ring3D {
+  border-color: color-mix(in srgb, var(--hero-accent) 42%, transparent);
+}
+
+.landingPage3D .gcIcon {
+  color: var(--hero-accent);
+}
+
+.landingPage3D .quickGrid3D {
+  margin-top: 12px;
+}
+
+@media (max-width: 1100px) {
+  .siteHeaderLanding .headerInner {
+    width: calc(100% - 36px);
+    padding-inline: 16px;
+  }
+
+  .siteHeaderLanding .headerNav {
+    gap: 4px;
+  }
+
+  .siteHeaderLanding .headerNav a,
+  .siteHeaderLanding .navHelpBtn {
+    padding-inline: 9px;
+  }
+
+  .landingPage3D .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-inline: 34px;
+  }
+}
+
+@media (max-width: 639px) {
+  .siteHeaderLanding .headerInner {
+    width: calc(100% - 24px);
+    height: 58px;
+    margin-top: 8px;
+    padding-inline: 12px;
+  }
+
+  .siteHeaderLanding .brand {
+    font-size: 16px;
+  }
+
+  .siteHeaderLanding .brandMark {
+    width: 32px;
+    height: 32px;
+  }
+
+  .landingPage3D .hero {
+    width: 100%;
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding: 18px 22px 26px;
+    background-image:
+      radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--hero-accent) 10%, transparent), transparent 55%),
+      linear-gradient(160deg, var(--bg-canvas), var(--bg-surface) 68%, color-mix(in srgb, var(--hero-accent-soft) 8%, var(--bg-canvas))) !important;
+  }
+
+  .landingPage3D .hero::before {
+    right: -60%;
+    bottom: -24%;
+    width: 130%;
+  }
+
+  .landingPage3D .hero h1 {
+    font-size: clamp(36px, 9.5vw, 48px);
+    letter-spacing: -0.055em;
+  }
+
+  .landingPage3D .heroActions {
+    gap: 9px;
+  }
+
+  .landingPage3D .heroActions .button {
+    min-height: 46px;
+    padding: 11px 15px;
+    font-size: 13px;
+  }
+
+  .landingPage3D .heroVisual3D {
+    height: clamp(240px, 67vw, 290px);
+  }
+
+  .landingPage3D .quickGrid3D {
+    margin-top: 10px;
+  }
+}
+
+html,
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 92% 8%, color-mix(in srgb, var(--hero-accent) 9%, transparent), transparent 34rem),
+    radial-gradient(ellipse at 4% 42%, color-mix(in srgb, var(--hero-accent-soft) 7%, transparent), transparent 30rem),
+    var(--bg-canvas) !important;
+  color: var(--text-primary);
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+.brand {
+  color: var(--text-primary);
+  letter-spacing: -0.035em;
+}
+
+p,
+.subtitle,
+.heroLead {
+  color: var(--text-secondary);
+}
+
+.siteHeader:not(.siteHeaderLanding) {
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  border-color: var(--border-hairline);
+}
+
+.siteHeader:not(.siteHeaderLanding) .brandMark {
+  background: var(--hero-accent);
+  color: #fff;
+}
+
+.headerNav a:hover,
+.navHelpBtn:hover,
+.workflowContent .backLink,
+.workflowContent .sectionLabel,
+.utilityHeader .sectionLabel {
+  color: var(--hero-accent);
+}
+
+.themeDropdownTrigger,
+.mobileMenuToggle,
+.buttonGhost,
+.button,
+.buttonGlow,
+.buttonPrimary,
+.buttonSecondary,
+.historyRemove,
+.tabBtn,
+.themeOption,
+.dropzone,
+input,
+textarea,
+select {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.button,
+.buttonGlow,
+.buttonPrimary,
+.buttonSecondary,
+.buttonGhost {
+  background: var(--hero-accent);
+  border-color: var(--hero-accent);
+  color: #fff;
+}
+
+.buttonGhost {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.button:hover,
+.buttonGlow:hover,
+.buttonPrimary:hover,
+.buttonSecondary:hover {
+  background: color-mix(in srgb, var(--hero-accent) 88%, var(--text-primary));
+  border-color: color-mix(in srgb, var(--hero-accent) 88%, var(--text-primary));
+  color: #fff;
+}
+
+.buttonGhost,
+.historyRemove {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-primary);
+}
+
+html[data-theme="light"] .button,
+html[data-theme="light"] .buttonGlow,
+html[data-theme="light"] .buttonPrimary,
+html[data-theme="light"] .buttonSecondary,
+html[data-theme="light"] .buttonGhost {
+  border: 1px solid #8FB6F8;
+  box-shadow: 0 0 0 2px rgba(7, 91, 238, 0.1);
+}
+
+html[data-theme="light"] .buttonGhost {
+  background: #EAF2FF;
+  color: #174EA6;
+}
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme="dark"]) .button,
+  html:not([data-theme="dark"]) .buttonGlow,
+  html:not([data-theme="dark"]) .buttonPrimary,
+  html:not([data-theme="dark"]) .buttonSecondary,
+  html:not([data-theme="dark"]) .buttonGhost {
+    border: 1px solid #8FB6F8;
+    box-shadow: 0 0 0 2px rgba(7, 91, 238, 0.1);
+  }
+
+  html:not([data-theme="dark"]) .buttonGhost {
+    background: #EAF2FF;
+    color: #174EA6;
+  }
+}
+
+.buttonGhost:hover,
+.historyRemove:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border-hover);
+  color: var(--hero-accent);
+}
+
+html[data-theme="light"] .buttonGhost:hover {
+  background: #DCEAFF;
+  border-color: #6D9DEB;
+  color: #123F87;
+}
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme="dark"]) .buttonGhost:hover {
+    background: #DCEAFF;
+    border-color: #6D9DEB;
+    color: #123F87;
+  }
+}
+
+.workflowSidebar,
+.workflowContent > .senderStepBox,
+.workflowContent > .receiverStepBox,
+.senderStepBox,
+.receiverStepBox,
+.statusCard,
+.utilityCard,
+.historyCard,
+.transferCodeBox,
+.joinForm,
+.progressBox,
+.prepStatusCard,
+.textInputCard,
+.fileMetadataBar,
+.fileRow,
+.receivedTextCard,
+.tutorialModalCard,
+.approvalCard,
+.connectingCard,
+.successCard,
+.failureCard {
+  background-color: var(--bg-surface);
+  border-color: var(--border-hairline);
+  border-radius: 16px;
+}
+
+.workflowSidebar {
+  background: color-mix(in srgb, var(--bg-surface) 88%, var(--hero-accent) 12%);
+}
+
+.workflowNavItem:hover,
+.workflowNavItemActive {
+  background: color-mix(in srgb, var(--hero-accent) 10%, var(--bg-surface));
+  color: var(--hero-accent);
+}
+
+.workflowNavItem > span,
+.historyDirectionIcon,
+.utilityHeroIcon,
+.dropzoneIcon,
+.fileRowIcon {
+  background: color-mix(in srgb, var(--hero-accent) 11%, var(--bg-surface));
+  color: var(--hero-accent);
+}
+
+.workflowContent .flowHeader h1,
+.utilityHeader h1,
+.historyTitleLine h2,
+.settingsSectionHeading h2,
+.privacySettings h2,
+.historyEmpty h2 {
+  color: var(--text-primary);
+  letter-spacing: -0.04em;
+}
+
+.transferModeSwitch {
+  align-self: flex-start;
+  margin-top: 6px;
+  min-height: 40px;
+  padding: 11px 20px;
+}
+
+.workflowContent .subtitle,
+.utilityHeader p,
+.utilityCard p,
+.historySummary,
+.historyTitleLine time,
+.historyFileList small,
+.themeOptionText small {
+  color: var(--text-secondary);
+}
+
+.modeTabs,
+.tabBtn,
+.themeOption {
+  background-color: var(--bg-subtle);
+  border-color: var(--border-hairline);
+}
+
+.tabBtnActive,
+.themeOptionActive {
+  background: color-mix(in srgb, var(--hero-accent) 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--hero-accent) 46%, var(--border-hairline));
+  color: var(--hero-accent);
+}
+
+.dropzone {
+  background:
+    radial-gradient(ellipse at 50% 20%, color-mix(in srgb, var(--hero-accent) 9%, transparent), transparent 58%),
+    var(--bg-surface);
+  border-color: color-mix(in srgb, var(--hero-accent) 32%, var(--border-hairline));
+  border-radius: 18px;
+}
+
+.dropzone:hover,
+.dropzone.dragOver {
+  background: color-mix(in srgb, var(--hero-accent) 9%, var(--bg-surface));
+  border-color: var(--hero-accent);
+  color: var(--text-primary);
+}
+
+.dropzone:hover *,
+.dropzone.dragOver * {
+  color: inherit;
+}
+
+.dropzone h3,
+.fileName,
+.fileMetadataBar,
+.fileRowMeta {
+  color: var(--text-primary);
+}
+
+.dropzoneSub,
+.dropzoneMeta {
+  color: var(--text-secondary);
+}
+
+.dropzoneMeta {
+  background: color-mix(in srgb, var(--hero-accent) 8%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--hero-accent) 12%, var(--border-hairline));
+}
+
+.transferCodeBox {
+  background:
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--hero-accent) 11%, transparent), transparent 62%),
+    var(--bg-surface);
+  border-color: color-mix(in srgb, var(--hero-accent) 26%, var(--border-hairline));
+}
+
+.codeLabel,
+.sectionLabel,
+.sectionHeading > span,
+.codeDigits,
+.progressBarFill,
+.statusPill.tone-active {
+  color: var(--hero-accent);
+}
+
+.progressBarContainer {
+  background: var(--bg-subtle);
+  border-color: var(--border-hairline);
+}
+
+.progressBarFill {
+  background: linear-gradient(90deg, var(--hero-accent), var(--hero-accent-soft));
+}
+
+.statusPill.tone-active {
+  background: color-mix(in srgb, var(--status-active) 12%, var(--bg-surface));
+}
+
+.errorAlert,
+.inputValidationAlert {
+  background: color-mix(in srgb, var(--red) 7%, var(--bg-surface));
+}
+
+.themeOption:hover {
+  border-color: color-mix(in srgb, var(--hero-accent) 40%, var(--border-hairline));
+}
+
+.historyFileList li {
+  border-color: var(--border-hairline);
+}
+
+.historyEmpty .heroActions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 639px) {
+  .utilityPage {
+    padding-top: 36px;
+  }
+
+  .historyCard {
+    border-radius: 14px;
+    gap: 12px;
+    padding: 16px;
+  }
 }

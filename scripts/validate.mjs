@@ -41,6 +41,6 @@ for (const check of ['isSameOrigin', 'enforceRateLimit', 'authenticateSignal', '
 const signalAuth = await readFile('lib/server/signalAuth.ts', 'utf8');
 if (!signalAuth.includes('safeSecretEquals')) throw new Error('Signaling token comparison missing.');
 
-console.log('PeerBridge project validation: PASS');
+console.log('Share Bridge project validation: PASS');
 console.log(`Next.js ${pkg.dependencies.next} / React ${pkg.dependencies.react}`);
 console.log(`${required.length} required project files verified.`);

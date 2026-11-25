@@ -625,6 +625,9 @@ export default function SendFlow() {
         </Link>
         <h1>Send Files &amp; Text</h1>
         <p className="subtitle">Select files or type a text snippet to generate a 6-digit transfer code for the receiver.</p>
+        <Link href="/receive" className="button buttonGhost transferModeSwitch">
+          Receive instead
+        </Link>
       </div>
 
       <ConnectionStatus state={state} peerStatus={peerStatus} sendMode={sendMode} />

@@ -32,7 +32,7 @@ export default function ThemeSettings() {
       <header className="utilityHeader">
         <span className="sectionLabel">Personalize</span>
         <h1>Settings</h1>
-        <p>Choose how PeerBridge looks on this device.</p>
+        <p>Choose how Share Bridge looks on this device.</p>
       </header>
 
       <section className="utilityCard settingsCard">

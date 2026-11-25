@@ -61,7 +61,7 @@ async function redisCommand<T = unknown>(args: Array<string | number>): Promise<
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'User-Agent': 'PeerBridge/1.0'
+        'User-Agent': 'ShareBridge/1.0'
       },
       body: JSON.stringify(args),
       cache: 'no-store',
@@ -92,7 +92,7 @@ async function redisPipeline(commands: Array<Array<string | number>>): Promise<u
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'User-Agent': 'PeerBridge/1.0'
+        'User-Agent': 'ShareBridge/1.0'
       },
       body: JSON.stringify(commands),
       cache: 'no-store',
@@ -215,4 +215,3 @@ export async function incrementWithTtl(key: string, ttlSeconds: number): Promise
   localKv.set(key, { value: String(current), expiresAt: now() + ttlSeconds * 1000 });
   return current;
 }
-

@@ -17,8 +17,8 @@ export function BrandMark() {
   return (
     <span className="brandMark" aria-hidden="true">
       <svg viewBox="0 0 32 32" role="img">
-        <path d="M9 8.5 16 15.5 23 8.5M9 23.5 16 16.5l7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="m8 9 7-7m9 7-7-7M8 23l7 7m9-7-7 7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/>
+        <path d="M8 24h16a5.5 5.5 0 0 0 .7-11 8.5 8.5 0 0 0-16.2-1.6A6.4 6.4 0 0 0 8 24Z" fill="currentColor"/>
+        <path d="M16 21v-9m-4 4 4-4 4 4" fill="none" stroke="var(--accent-fg)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </span>
   );
@@ -115,12 +115,13 @@ export default function AppHeader() {
     <>
       <header className={`siteHeader ${isLandingPage ? 'siteHeaderLanding' : ''}`}>
         <div className="shell headerInner">
-          <Link className="brand" href="/" aria-label="PeerBridge home" onClick={closeMenu}>
+          <Link className="brand" href="/" aria-label="Share Bridge home" onClick={closeMenu}>
             <BrandMark />
-            <span>PeerBridge</span>
+            <span>Share Bridge</span>
           </Link>
 
           <nav className="headerNav desktopNav" aria-label="Primary navigation">
+            <Link href="/" aria-current={isLandingPage ? 'page' : undefined}>Home</Link>
             <a href="/#how">How it works</a>
             <a href="/#features">Features</a>
             <a href="/#security">Security</a>

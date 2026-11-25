@@ -137,7 +137,7 @@ export default function TutorialModal({
   const step = steps[currentStep];
 
   return (
-    <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="How to Use PeerBridge Tutorial">
+    <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="How to Use Share Bridge Tutorial">
       <div className="tutorialModalCard" ref={modalRef}>
         <div className="tutorialHeader">
           <span className="tutorialStepBadge">{step.badge}</span>

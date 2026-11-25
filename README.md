@@ -1,8 +1,8 @@
-# 🌉 PeerBridge — High-Performance P2P File & Text Transfer
+# 🌉 Share Bridge — High-Performance P2P File & Text Transfer
 
 > **Live Application**: [https://share-bridge-roan.vercel.app/](https://share-bridge-roan.vercel.app/)
 
-PeerBridge is an enterprise-grade, responsive WebRTC peer-to-peer file and text sharing application built with Next.js 16 (App Router), TypeScript, and Upstash Redis signaling. It enables ultra-fast, direct browser-to-browser transfers without routing file content through central server storage.
+Share Bridge is an enterprise-grade, responsive WebRTC peer-to-peer file and text sharing application built with Next.js 16 (App Router), TypeScript, and Upstash Redis signaling. It enables ultra-fast, direct browser-to-browser transfers without routing file content through central server storage.
 
 ---
 
@@ -83,7 +83,7 @@ For offline hotspot transfers, first load `/offline` while online so the service
 
 ## 🧪 Testing & Validation
 
-PeerBridge includes automated unit tests and type checks:
+Share Bridge includes automated unit tests and type checks:
 
 ```bash
 # Run unit tests
@@ -109,7 +109,7 @@ For production deployments on Vercel:
 
 STUN can establish direct connections in many cases but cannot relay traffic. Without a configured, reachable TURN service, transfers across restrictive networks cannot be guaranteed. When a connection succeeds, the app reports whether it is using the direct path or a TURN relay.
 
-Room creation and normal signaling require an internet connection to reach the PeerBridge app and its shared session store. The separate offline hotspot flow uses no signaling server or STUN/TURN after both devices have loaded the app shell; it depends on peer-to-peer host-candidate connectivity working on the local network. Browser isolation, router policies, or hotspot settings can still prevent a direct connection. WebRTC encrypts DataChannel traffic with DTLS; this release does not add a separate application-layer ECDH/AES-GCM protocol.
+Room creation and normal signaling require an internet connection to reach the Share Bridge app and its shared session store. The separate offline hotspot flow uses no signaling server or STUN/TURN after both devices have loaded the app shell; it depends on peer-to-peer host-candidate connectivity working on the local network. Browser isolation, router policies, or hotspot settings can still prevent a direct connection. WebRTC encrypts DataChannel traffic with DTLS; this release does not add a separate application-layer ECDH/AES-GCM protocol.
 
 ---
 

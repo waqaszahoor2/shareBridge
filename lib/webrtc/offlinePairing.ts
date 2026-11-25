@@ -36,7 +36,7 @@ export function encodeOfflineDescription(description: RTCSessionDescriptionInit,
 export function decodeOfflineDescription(encoded: string, expectedPairingCode: string): { pairingCode: string; description: RTCSessionDescriptionInit } {
   const match = /^PB1:(\d{6}):([A-Za-z0-9_-]+)$/.exec(encoded.trim());
   if (!match || encoded.length > MAX_COMPRESSED_BYTES * 2) {
-    throw new Error('This is not valid PeerBridge offline connection data.');
+    throw new Error('This is not valid Share Bridge offline connection data.');
   }
   const [, pairingCode, payload] = match;
   if (!/^\d{6}$/.test(expectedPairingCode) || pairingCode !== expectedPairingCode) {

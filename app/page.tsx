@@ -6,8 +6,8 @@ export default function HomePage() {
     <main className="landingPage3D">
       <section className="hero shell">
         <div className="heroCopy">
-          <div className="eyebrow"><span className="dot" /> P2P WebRTC Direct Engine</div>
-          <h1>Share files &amp; text <span>directly between devices.</span></h1>
+          <div className="eyebrow"><span className="dot" /> Fast · Secure · Reliable</div>
+          <h1>Share files &amp; text <span className="heroAccentWord">directly</span> between devices.</h1>
           <p className="heroLead">Fast, private peer-to-peer sharing for your files and messages. Connect with a temporary code; your file contents never upload to our servers.</p>
           <div className="heroActions">
             <Link className="button buttonGlow" href="/send">Start sharing <span>→</span></Link>
@@ -71,7 +71,7 @@ export default function HomePage() {
           <article className="stepCard3D">
             <span className="stepNum">01</span>
             <h3>Select Files or Type Text</h3>
-            <p>Drop arbitrary binary files or type text notes to share. PeerBridge formats metadata automatically.</p>
+            <p>Drop arbitrary binary files or type text notes to share. Share Bridge formats metadata automatically.</p>
           </article>
           <article className="stepCard3D">
             <span className="stepNum">02</span>

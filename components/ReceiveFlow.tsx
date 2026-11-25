@@ -824,6 +824,9 @@ export default function ReceiveFlow() {
         </Link>
         <h1>Receive Files</h1>
         <p className="subtitle">Enter the 6-digit code provided by the sender to join the transfer.</p>
+        <Link href="/send" className="button buttonGhost transferModeSwitch">
+          Send instead
+        </Link>
       </div>
 
       <ConnectionStatus state={state} peerStatus={peerStatus} />

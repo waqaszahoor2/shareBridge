@@ -9,7 +9,7 @@ export async function GET() {
   return noStoreJson({
     status: 'ok',
     redis: isRedisConnected ? 'connected' : 'fallback',
-    service: 'PeerBridge',
+    service: 'Share Bridge',
     sessionStore: isRedisConnected ? 'redis' : 'fallback'
   });
 }
