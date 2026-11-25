@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import ts from 'typescript';
 
 // Test 1: Code Normalization
 test('normalizeCode formats digits correctly', () => {
@@ -536,6 +537,39 @@ test('signal stream authenticates credentials and applies same-origin/rate-limit
   assert.match(route, /isSameOrigin\(request\)/);
   assert.match(route, /enforceRateLimit\(request, 'signal-stream'/);
   assert.match(route, /authenticateSignal\(code, role, token\)/);
+});
+
+test('Redis failures do not silently store shared transfer state in process memory', async () => {
+  const source = (await readFile(new URL('../lib/server/store.ts', import.meta.url), 'utf8'))
+    .replace(/^import 'server-only';\r?\n/, '');
+  const javascript = ts.transpile(source, {
+    module: ts.ModuleKind.ES2022,
+    target: ts.ScriptTarget.ES2022
+  });
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const previousFetch = globalThis.fetch;
+  const previousError = console.error;
+
+  process.env.UPSTASH_REDIS_REST_URL = 'https://redis.test';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+  globalThis.fetch = async () => {
+    throw new Error('Redis unavailable');
+  };
+  console.error = () => {};
+
+  try {
+    const store = await import(`data:text/javascript;base64,${Buffer.from(javascript).toString('base64')}`);
+    await assert.rejects(store.put('session', 'value', 60), /Redis unavailable/);
+    await assert.rejects(store.pushSignal('signals', '{}', 60), /Redis unavailable/);
+  } finally {
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+    globalThis.fetch = previousFetch;
+    console.error = previousError;
+  }
 });
 
 // Test 35: Session Purge Requires a Valid Sender or Receiver Token

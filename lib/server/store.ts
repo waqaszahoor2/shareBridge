@@ -118,8 +118,8 @@ async function safeRedisCommand<T = unknown>(args: Array<string | number>): Prom
     const result = await redisCommand<T>(args);
     return { ok: true, result };
   } catch (err) {
-    console.warn('[Store] Redis operation failed, falling back to local store:', err instanceof Error ? err.message : err);
-    return { ok: false };
+    console.error('[Store] Redis operation failed; refusing process-local fallback:', err instanceof Error ? err.message : err);
+    throw err;
   }
 }
 
@@ -129,8 +129,8 @@ async function safeRedisPipeline(commands: Array<Array<string | number>>): Promi
     const results = await redisPipeline(commands);
     return { ok: true, results };
   } catch (err) {
-    console.warn('[Store] Redis pipeline failed, falling back to local store:', err instanceof Error ? err.message : err);
-    return { ok: false };
+    console.error('[Store] Redis pipeline failed; refusing process-local fallback:', err instanceof Error ? err.message : err);
+    throw err;
   }
 }
 
