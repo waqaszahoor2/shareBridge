@@ -1,13 +1,19 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import AppHeader from '@/components/AppHeader';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import './globals.css';
 
-const inter = Inter({
+const uiFont = Plus_Jakarta_Sans({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-inter'
+  variable: '--font-ui'
+});
+
+const monoFont = Geist_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono'
 });
 
 export const metadata: Metadata = {
@@ -38,13 +44,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#6d4aff'
+  themeColor: '#FAFAFA'
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${uiFont.variable} ${monoFont.variable}`} suppressHydrationWarning>
         <div className="ambient ambientOne" />
         <div className="ambient ambientTwo" />
         <AppHeader />
